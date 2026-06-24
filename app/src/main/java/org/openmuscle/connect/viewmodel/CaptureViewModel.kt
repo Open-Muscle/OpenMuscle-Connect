@@ -15,11 +15,13 @@ import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.openmuscle.connect.OmApp
+import org.openmuscle.connect.Prefs
 import org.openmuscle.connect.capture.CaptureRecorder
-import org.openmuscle.connect.capture.CsvSessionWriter
+import org.openmuscle.connect.capture.CsvV2Writer
 import org.openmuscle.connect.capture.SessionInfo
 import org.openmuscle.connect.capture.SessionStore
 import org.openmuscle.connect.domain.LabelFrame
+import org.openmuscle.connect.domain.Role
 import org.openmuscle.connect.domain.SensorFrame
 import java.io.BufferedWriter
 import java.io.FileWriter
@@ -111,13 +113,16 @@ class CaptureViewModel(app: Application) : AndroidViewModel(app) {
     private fun onSensorFrame(file: java.io.File, frame: SensorFrame) {
         var rec = recorder
         if (rec == null) {
-            val writer = CsvSessionWriter(
+            val writer = CsvV2Writer(
                 out = BufferedWriter(FileWriter(file)),
                 rows = frame.rows,
                 cols = frame.cols,
                 labelCount = 4,
             )
-            rec = CaptureRecorder(writer)
+            // The band's role tag (from the picker), defaulting to left for an
+            // untagged single band; the trainer ignores role for single-role v2.
+            val role = Prefs.role(getApplication(), frame.deviceId) ?: Role.LEFT
+            rec = CaptureRecorder(writer, role)
             recorder = rec
         }
         // UI manual labels are ints (slider); the recorder/CSV path is float, so

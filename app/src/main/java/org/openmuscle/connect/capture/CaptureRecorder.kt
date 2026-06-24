@@ -1,11 +1,15 @@
 package org.openmuscle.connect.capture
 
 import org.openmuscle.connect.domain.LabelFrame
+import org.openmuscle.connect.domain.Role
 import org.openmuscle.connect.domain.SensorFrame
 import org.openmuscle.connect.protocol.MatrixUtil
 
 /**
- * Pairs incoming sensor frames with labels and writes PC-compatible rows.
+ * Single-source capture: pairs incoming sensor frames with labels and writes
+ * schema-v2 rows (docs/CSV-SCHEMA-V2.md) via [CsvV2Writer], tagged with the band's
+ * hub-assigned [role] and the frame's device id. The everyday one-band capture
+ * uses the same v2 schema as multi-device, so there is one CSV format in the wild.
  *
  * Two label modes:
  *  - External labels (LASK5, or later Quest): feed them via [onLabel]; each
@@ -17,7 +21,8 @@ import org.openmuscle.connect.protocol.MatrixUtil
  * screen drives [onSensor]/[onLabel] from the transport flows.
  */
 class CaptureRecorder(
-    private val writer: CsvSessionWriter,
+    private val writer: CsvV2Writer,
+    private val role: Role,
     private val matcher: TemporalMatcher = TemporalMatcher(),
 ) {
     /** When non-null, every sensor frame is labeled with this vector. */
@@ -44,7 +49,13 @@ class CaptureRecorder(
     fun onSensor(frame: SensorFrame) {
         seen++
         val labels = manualLabel ?: matcher.match(frame.receiveTimeMs)?.values ?: return
-        writer.writeRow(frame.receiveTimeMs, MatrixUtil.flattenRowMajor(frame.matrix), labels)
+        writer.writeRow(
+            tsHubMs = frame.receiveTimeMs,
+            role = role.wire,
+            deviceId = frame.deviceId,
+            sensorValues = MatrixUtil.flattenRowMajor(frame.matrix),
+            labelValues = labels,
+        )
         matched++
     }
 
