@@ -8,9 +8,9 @@ Connect. If you are a future loop: read this top-to-bottom, then continue from
 > FEATURE-COMPLETE across P1-P4 plus the WiFi provisioning client side, built as
 > the `phone` team on Tory's multi-team coordination board (firmware / phone /
 > vrpc / overseer; board at `C:\dev\ttx\Open Muscle\.claude-mail\openmuscle`). The
-> repo is git-init'd on `main` with an MIT LICENSE; 26 commits are staged locally
+> repo is git-init'd on `main` with an MIT LICENSE; 28 commits are staged locally
 > and AWAIT TORY'S PUSH (red line: do not push). `:app:testDebugUnitTest` BUILD
-> SUCCESSFUL, 78 JVM unit tests pass.
+> SUCCESSFUL, 81 JVM unit tests pass.
 >
 > What landed this run:
 > - P1 PROTOCOL FREEZE: signed off on OpenMuscle PROTOCOL.md v1.0 (announce UDP
@@ -24,8 +24,10 @@ Connect. If you are a future loop: read this top-to-bottom, then continue from
 >   -> POST /provision -> release AP -> confirm the device rejoined the LAN via its
 >   3140 announce (ProvisioningViewModel + ProvisioningScreen). Built to the #0042
 >   corrections (Specifier not Suggestion; hub_host omitted; manual SSID; confirm
->   on 3140). Open-AP vs WPA2-PSK join auth is the only Tory item-6 dependency.
->   Live end-to-end waits on firmware AP mode + the phone.
+>   on 3140). Item 6 is now ratified WPA2-PSK with a per-device random OLED PSK
+>   (boards #0126/#0127, a29128e): the join uses setWpa2Passphrase with the
+>   user-typed 10-char code (ApPsk pins charset/length; not derived). Live
+>   end-to-end waits on firmware AP mode + the phone.
 > - P3 DISCOVERY HARDENING: beacon listen on UDP 3140; device host/IP persisted
 >   for cache recovery.
 > - P4 MULTI-DEVICE: role UI (left/right/labeler), CSV schema v2 (long format,
@@ -40,8 +42,8 @@ Connect. If you are a future loop: read this top-to-bottom, then continue from
 >
 > REMAINING is all Tory-gated or firmware-gated: push the 26 commits; reconnect the
 > phone; on-device review of the multi-device capture UX + the provisioning
-> end-to-end once firmware ships AP mode; ratify open-AP vs WPA2 (item 6) and the
-> VR hub model (item 5). No greenlit non-gated phone code remains.
+> end-to-end once firmware ships AP mode; ratify the VR hub model (item 5). No
+> greenlit non-gated phone code remains.
 
 > NOTE (2026-06-18): this file was reconstructed from the session context after a
 > disk-full event truncated it to 0 bytes (D: drive hit 0 bytes free mid-write;
@@ -243,6 +245,14 @@ the phone, Load model on the Predict screen.
     the dir, or move `build/` off OneDrive); VR hub model; BLE transport swap.
 
 ## Loop journal (newest first)
+
+- 2026-06-24 item-6 resolved: WPA2-PSK provisioning (a29128e). Firmware ratified
+  WPA2 over open AP, with a per-device RANDOM 10-char PSK shown on the device OLED
+  (overseer #0126 caught that a device-id-derived PSK in open-source firmware gives
+  no real security; #0127 made it random + out-of-band). Phone join now calls
+  setWpa2Passphrase with the user-typed code via a new ENTER_PSK step; ApPsk pins
+  the charset/length (abcdefghijkmnpqrstuvwxyz23456789, len 10) with a unit test.
+  81 tests pass.
 
 - 2026-06-24 multi-agent run, phone team (see CURRENT STATE at top for full
   detail): the phone joined Tory's coordination board and drove its workstream to
