@@ -54,13 +54,23 @@ feature matrix from the long CSV, not the on-disk layout:
 So 8.4's "120 feature columns" is the **training matrix width after the pivot**, not the CSV
 column count. The CSV is always 60 features per row.
 
-Pivot details (settled with vrpc, #0072):
+Pivot details (settled with vrpc, #0072 and #0086):
 - **Label selection.** A left row and a right row in the same group each carry labels matched
-  to *their own* arrival time, so the two label vectors can differ. The pivoted 120-feature row
-  uses the labeler value nearest the group's `ts_hub_ms`.
-- **Pivot window + unpaired groups.** Reuse the capture match window. For bilateral, **drop**
-  groups missing a side rather than zero-fill (a half-present group is not a valid bilateral
-  sample).
+  to *their own* arrival time, so the two label vectors can differ. The group is anchored on the
+  Left row, so the pivoted 120-feature row uses the Left row's labels (the labeler value nearest
+  the group's `ts_hub_ms`).
+- **Pivot pairing window + unpaired groups.** The left/right pairing window (distinct from the
+  capture sensor-to-label window) defaults to **50 ms** and is configurable; it pairs the nearest
+  left and right frames into one bilateral sample (pandas `merge_asof` on the PC = the static
+  `TemporalMatcher`). For bilateral, **drop** groups missing a side rather than zero-fill (a
+  half-present group is not a valid bilateral sample).
+- **Wide-matrix column order (the inference contract).** The 120 feature columns are the 60 Left
+  features followed by the 60 Right, each side in the canonical row-major order with an `_L` / `_R`
+  suffix: `R0C0_L, R0C1_L, ..., R3C14_L, R0C0_R, R0C1_R, ..., R3C14_R`. This order is contractual:
+  a hub doing bilateral inference MUST build its 120-feature vector the same way, so the phone's
+  bilateral inference matches a model the PC trained on this matrix. (Confirmed with vrpc, #0086;
+  no separate byte golden needed since the wide matrix is never serialized to disk, only the long
+  CSV is.)
 - **Single vs bilateral guard.** A bilateral long CSV fed to the trainer *without* the pivot does
   not error: the column detector picks `R{r}C{c}` + `label_*` and silently trains a pooled,
   role-agnostic 60-feature model on mixed left+right rows (wrong intent, no crash). The trainer
