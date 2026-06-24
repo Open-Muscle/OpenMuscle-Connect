@@ -89,6 +89,22 @@ class ProvisioningClient(context: Context) {
                 ?.let { ProvisioningCodec.parseProvisionAck(it) }
         }
 
+    /**
+     * POST /reprovision to an already-provisioned device on the normal LAN
+     * (PROVISIONING.md 4.3 + 7 phone MUST #3): clears its saved Wi-Fi and soft-resets
+     * it back into setup mode. Unlike the AP handshake this runs on the default
+     * network (the device is at [host]:80 on the home LAN), so it is not bound to a
+     * specific Network. Returns true if the device acked ok. Destructive: confirm first.
+     */
+    suspend fun reprovision(host: String): Boolean = withContext(Dispatchers.IO) {
+        val req = Request.Builder()
+            .url("http://$host/reprovision")
+            .post("".toRequestBody(JSON))
+            .build()
+        val body = runCatching { lanClient.newCall(req).execute().use { it.body?.string() } }.getOrNull()
+        body != null && ProvisioningCodec.parseReprovisionAck(body)
+    }
+
     /** Release the AP request so the phone reverts to its home Wi-Fi. Safe to call repeatedly. */
     fun disconnect() = release()
 
@@ -103,6 +119,14 @@ class ProvisioningClient(context: Context) {
             .connectTimeout(HTTP_TIMEOUT_S, TimeUnit.SECONDS)
             .readTimeout(HTTP_TIMEOUT_S, TimeUnit.SECONDS)
             .build()
+
+    /** Default-network client for LAN calls (reprovision), not bound to the AP. */
+    private val lanClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(HTTP_TIMEOUT_S, TimeUnit.SECONDS)
+            .readTimeout(HTTP_TIMEOUT_S, TimeUnit.SECONDS)
+            .build()
+    }
 
     private fun release() {
         callback?.let { cb -> runCatching { cm.unregisterNetworkCallback(cb) } }

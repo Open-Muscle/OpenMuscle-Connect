@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.wifi.WifiManager
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -14,9 +15,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.FileProvider
+import kotlinx.coroutines.launch
 import org.openmuscle.connect.ui.CaptureScreen
 import org.openmuscle.connect.ui.DevicePickerScreen
 import org.openmuscle.connect.ui.HomeScreen
@@ -81,6 +85,8 @@ class MainActivity : ComponentActivity() {
                 when (route) {
                     Route.PICKER -> {
                         val devices by discoveryVm.state.collectAsState()
+                        val context = LocalContext.current
+                        val scope = rememberCoroutineScope()
                         DevicePickerScreen(
                             devices = devices,
                             onSelect = { device ->
@@ -100,6 +106,21 @@ class MainActivity : ComponentActivity() {
                                 route = Route.PROVISION
                                 // Launching always: if already granted, returns immediately.
                                 locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                            },
+                            onReprovision = { device ->
+                                val host = device.host
+                                if (host == null) {
+                                    Toast.makeText(context, "No address for ${device.id} yet", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    scope.launch {
+                                        val ok = provisioningVm.reprovisionDevice(host)
+                                        Toast.makeText(
+                                            context,
+                                            if (ok) "${device.id} reset to setup mode" else "Could not reach ${device.id}",
+                                            Toast.LENGTH_SHORT,
+                                        ).show()
+                                    }
+                                }
                             },
                         )
                     }

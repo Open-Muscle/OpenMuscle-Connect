@@ -49,9 +49,11 @@ fun DevicePickerScreen(
     onSetRole: (String, Role?) -> Unit,
     onMultiCapture: () -> Unit,
     onProvisionDevice: () -> Unit,
+    onReprovision: (DiscoveredDevice) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var editing by remember { mutableStateOf<DiscoveredDevice?>(null) }
+    var reproving by remember { mutableStateOf<DiscoveredDevice?>(null) }
 
     Scaffold(
         modifier = modifier,
@@ -87,6 +89,7 @@ fun DevicePickerScreen(
                             device = device,
                             onClick = { onSelect(device) },
                             onRename = { editing = device },
+                            onReprovision = { reproving = device },
                             onSetRole = { role -> onSetRole(device.id, role) },
                         )
                     }
@@ -117,6 +120,26 @@ fun DevicePickerScreen(
             onDismiss = { editing = null },
         )
     }
+
+    reproving?.let { device ->
+        AlertDialog(
+            onDismissRequest = { reproving = null },
+            title = { Text("Reset Wi-Fi?") },
+            text = {
+                Text(
+                    "This erases the saved Wi-Fi on ${device.nickname ?: device.id} and restarts it in setup mode. " +
+                        "You will need to set it up again.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onReprovision(device)
+                    reproving = null
+                }) { Text("Reset") }
+            },
+            dismissButton = { TextButton(onClick = { reproving = null }) { Text("Cancel") } },
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -125,6 +148,7 @@ private fun DeviceCard(
     device: DiscoveredDevice,
     onClick: () -> Unit,
     onRename: () -> Unit,
+    onReprovision: () -> Unit,
     onSetRole: (Role?) -> Unit,
 ) {
     Card(
@@ -154,7 +178,13 @@ private fun DeviceCard(
                         style = MaterialTheme.typography.labelSmall,
                     )
                 }
-                TextButton(onClick = onRename) { Text("Rename") }
+                Row {
+                    // Secondary action: send the device back to setup (PROVISIONING.md 4.3).
+                    if (device.host != null) {
+                        TextButton(onClick = onReprovision) { Text("Reset Wi-Fi") }
+                    }
+                    TextButton(onClick = onRename) { Text("Rename") }
+                }
             }
             // Capture role: tag this device left/right/labeler for multi-device
             // capture (schema v2). Tapping the active chip clears it.

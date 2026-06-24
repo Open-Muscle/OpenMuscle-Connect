@@ -184,6 +184,12 @@ class ProvisioningViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * POST /reprovision to an already-provisioned device on the LAN (spec 7 phone
+     * MUST #3). Independent of the AP onboarding state; returns true if it acked ok.
+     */
+    suspend fun reprovisionDevice(host: String): Boolean = client.reprovision(host)
+
     /** Reset to the start (also releases any held AP network). */
     fun reset() {
         job?.cancel()

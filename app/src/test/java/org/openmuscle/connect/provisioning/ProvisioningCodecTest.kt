@@ -1,6 +1,7 @@
 package org.openmuscle.connect.provisioning
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -49,6 +50,17 @@ class ProvisioningCodecTest {
         )
         assertTrue(r is ProvisionResult.Error)
         assertEquals("ssid_too_long", (r as ProvisionResult.Error).message)
+    }
+
+    @Test
+    fun parsesReprovisionAck() {
+        assertTrue(
+            ProvisioningCodec.parseReprovisionAck(
+                """{"v":"1.0","type":"reprovision_ack","status":"ok","reboot_in_ms":1500}""",
+            ),
+        )
+        assertFalse(ProvisioningCodec.parseReprovisionAck("""{"type":"reprovision_ack","status":"error"}"""))
+        assertFalse(ProvisioningCodec.parseReprovisionAck("not json"))
     }
 
     @Test

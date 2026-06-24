@@ -75,6 +75,9 @@ object ProvisioningCodec {
         }
     }
 
+    /** Parse a `POST /reprovision` ack (PROVISIONING.md 4.3); true on status ok. */
+    fun parseReprovisionAck(text: String): Boolean = obj(text)?.str("status") == "ok"
+
     private fun obj(text: String): JsonObject? =
         try {
             json.parseToJsonElement(text) as? JsonObject
