@@ -8,15 +8,19 @@
     <!-- Needed to receive UDP broadcast/multicast (the discovery beacon fallback). -->
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <!-- WiFi provisioning (P2): requestNetwork(WifiNetworkSpecifier) to join the
-         device's SoftAP for the credential handshake. -->
+         device's SoftAP for the credential handshake; CHANGE_WIFI_STATE +
+         ACCESS_FINE_LOCATION to scan for the OM-* AP (Wi-Fi scan needs location on
+         all API levels). -->
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
     <!-- BLE transport (phase 3). New runtime permissions on API 31+; legacy ones
          with maxSdkVersion for API 26-30. BLE is optional so Wi-Fi-only phones
-         can still install. -->
+         can still install. (ACCESS_FINE_LOCATION is declared uncapped above for the
+         Wi-Fi provisioning scan; it also covers BLE-legacy location on API 26-30.) -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
         android:usesPermissionFlags="neverForLocation" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
