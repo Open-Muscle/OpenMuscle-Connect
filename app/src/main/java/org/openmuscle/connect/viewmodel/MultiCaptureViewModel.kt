@@ -45,6 +45,7 @@ data class MultiCaptureUiState(
     val sources: List<RoleSource> = emptyList(),
     val activeFileName: String? = null,
     val sessions: List<SessionInfo> = emptyList(),
+    val mirror: Boolean = false,
     val status: String? = null,
 )
 
@@ -78,10 +79,17 @@ class MultiCaptureViewModel(app: Application) : AndroidViewModel(app) {
     private var tickerJob: Job? = null
     private var startElapsed = 0L
 
+    // Captured at start, used to write the meta sidecar at finish.
+    private var activeFile: java.io.File? = null
+    private var activeRoles: Map<String, Role> = emptyMap()
+
     init {
         refreshSources()
         refreshSessions()
     }
+
+    /** One-limb mirroring (PROTOCOL.md 8.5): tags the capture so training does not double-mirror. */
+    fun setMirror(enabled: Boolean) = _state.update { it.copy(mirror = enabled) }
 
     /** Role-assigned devices = cached devices (host/cmd known) that carry a role tag. */
     fun refreshSources() {
@@ -102,6 +110,8 @@ class MultiCaptureViewModel(app: Application) : AndroidViewModel(app) {
         }
         val file = store.file("capture_v2_${System.currentTimeMillis()}.csv")
         val roleById = sources.associate { it.deviceId to it.role }
+        activeFile = file
+        activeRoles = roleById
         recorder = null
         startElapsed = System.currentTimeMillis()
         _state.update {
@@ -162,8 +172,23 @@ class MultiCaptureViewModel(app: Application) : AndroidViewModel(app) {
             job?.cancelAndJoin()
             subscribed.forEach { transport.unsubscribe(it) }
             rec?.finish()
+            writeMetaSidecar()
             _state.update { it.copy(sessions = store.list()) }
         }
+    }
+
+    /** Write the `<capture>.meta.json` sidecar next to the CSV (mirror + role map + label source). */
+    private fun writeMetaSidecar() {
+        val csv = activeFile ?: return
+        val meta = org.openmuscle.connect.capture.CaptureMeta(
+            mirror = _state.value.mirror,
+            labelSource = "lask5",
+            roles = activeRoles,
+            createdMs = System.currentTimeMillis(),
+        )
+        val sidecar = java.io.File(csv.parentFile, org.openmuscle.connect.capture.CaptureMetaCodec.sidecarName(csv.name))
+        runCatching { sidecar.writeText(org.openmuscle.connect.capture.CaptureMetaCodec.encode(meta)) }
+        activeFile = null
     }
 
     fun deleteSession(name: String) {

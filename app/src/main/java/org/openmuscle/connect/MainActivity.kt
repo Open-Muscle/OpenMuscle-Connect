@@ -122,6 +122,7 @@ class MainActivity : ComponentActivity() {
                             onToggleRecord = {
                                 if (state.recording) multiCaptureVm.stopCapture() else multiCaptureVm.startCapture()
                             },
+                            onSetMirror = multiCaptureVm::setMirror,
                             onShare = ::shareSession,
                             onDelete = multiCaptureVm::deleteSession,
                             onBack = { route = Route.PICKER },

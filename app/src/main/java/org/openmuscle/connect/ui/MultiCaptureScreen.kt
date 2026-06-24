@@ -18,6 +18,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -34,6 +35,7 @@ import org.openmuscle.connect.viewmodel.MultiCaptureUiState
 fun MultiCaptureScreen(
     state: MultiCaptureUiState,
     onToggleRecord: () -> Unit,
+    onSetMirror: (Boolean) -> Unit,
     onShare: (String) -> Unit,
     onDelete: (String) -> Unit,
     onBack: () -> Unit,
@@ -81,6 +83,17 @@ fun MultiCaptureScreen(
                         }
                     }
                 }
+            }
+
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    "Mirror (one-limb: two bands on the same arm)",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Switch(checked = state.mirror, onCheckedChange = onSetMirror)
             }
 
             Button(onClick = onToggleRecord, modifier = Modifier.fillMaxWidth()) {
