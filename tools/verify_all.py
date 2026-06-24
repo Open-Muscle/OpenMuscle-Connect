@@ -17,6 +17,7 @@ HERE = Path(__file__).resolve().parent
 CHECKS = [
     ("wire format (vs real PC parser / CSV / matcher)", ["wireformat_check.py"]),
     ("golden CSV (vs real PC CaptureWriter)", ["make_golden_csv.py"]),
+    ("golden CSV v2 (schema-v2 byte contract)", ["make_golden_csv_v2.py"]),
     ("UDP simulator round-trip", ["openmuscle_sim.py", "--selftest"]),
     ("/cmd control server (vs ControlCodec strings)", ["cmd_server.py", "--selftest"]),
     ("BLE binary frame", ["ble_frame.py", "--selftest"]),
