@@ -79,6 +79,7 @@ class MainActivity : ComponentActivity() {
                                 route = Route.HOME
                             },
                             onRename = discoveryVm::renameDevice,
+                            onSetRole = discoveryVm::setRole,
                         )
                     }
 

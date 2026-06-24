@@ -16,6 +16,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -34,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import org.openmuscle.connect.domain.DiscoveredDevice
+import org.openmuscle.connect.domain.Role
 import org.openmuscle.connect.ui.theme.OmBackground
 import org.openmuscle.connect.ui.theme.OmSurface
 
@@ -44,6 +46,7 @@ fun DevicePickerScreen(
     onSelect: (DiscoveredDevice) -> Unit,
     onSkip: () -> Unit,
     onRename: (String, String) -> Unit,
+    onSetRole: (String, Role?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var editing by remember { mutableStateOf<DiscoveredDevice?>(null) }
@@ -82,6 +85,7 @@ fun DevicePickerScreen(
                             device = device,
                             onClick = { onSelect(device) },
                             onRename = { editing = device },
+                            onSetRole = { role -> onSetRole(device.id, role) },
                         )
                     }
                 }
@@ -105,35 +109,63 @@ fun DevicePickerScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DeviceCard(device: DiscoveredDevice, onClick: () -> Unit, onRename: () -> Unit) {
+private fun DeviceCard(
+    device: DiscoveredDevice,
+    onClick: () -> Unit,
+    onRename: () -> Unit,
+    onSetRole: (Role?) -> Unit,
+) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = OmSurface),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
+        Column(Modifier.fillMaxWidth().padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        device.nickname ?: device.id,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontFamily = FontFamily.Monospace,
+                    )
+                    Text(
+                        listOfNotNull(
+                            device.deviceType,
+                            device.host,
+                            device.transport.name.lowercase(),
+                            device.rssi?.let { "$it dBm" },
+                        ).joinToString("  "),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
+                TextButton(onClick = onRename) { Text("Rename") }
+            }
+            // Capture role: tag this device left/right/labeler for multi-device
+            // capture (schema v2). Tapping the active chip clears it.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(
-                    device.nickname ?: device.id,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontFamily = FontFamily.Monospace,
-                )
-                Text(
-                    listOfNotNull(
-                        device.deviceType,
-                        device.host,
-                        device.transport.name.lowercase(),
-                        device.rssi?.let { "$it dBm" },
-                    ).joinToString("  "),
+                    "Role",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelSmall,
                 )
+                for (r in Role.entries) {
+                    FilterChip(
+                        selected = device.role == r,
+                        onClick = { onSetRole(if (device.role == r) null else r) },
+                        label = { Text(r.wire) },
+                    )
+                }
             }
-            TextButton(onClick = onRename) { Text("Rename") }
         }
     }
 }
