@@ -203,6 +203,11 @@ class TcpControlChannel(
     }
 
     private fun readLoop(s: Socket) {
+        // The reader does NOT own `connected`. A stale reader (one whose socket is
+        // being replaced by reconnect()) used to set connected=false in finally,
+        // which could stomp a freshly-reconnected connected=true and cause a
+        // reconnect flap. The heartbeat loop is the single owner: it detects a drop
+        // on its next failed write/ack and reconnects.
         try {
             val reader = s.getInputStream().bufferedReader(Charsets.UTF_8)
             while (true) {
@@ -212,9 +217,7 @@ class TcpControlChannel(
                 ack.msgId?.let { pending.remove(it)?.complete(ack) }
             }
         } catch (e: Exception) {
-            // socket closed or read error; fall through to mark disconnected
-        } finally {
-            connected = false
+            // socket closed or read error; the heartbeat loop will notice and recover.
         }
     }
 
