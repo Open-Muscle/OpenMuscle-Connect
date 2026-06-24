@@ -1,6 +1,7 @@
 package org.openmuscle.connect.discovery
 
 import org.openmuscle.connect.domain.DiscoveredDevice
+import org.openmuscle.connect.domain.Role
 
 /**
  * Deduplicates discovered devices by id and merges partial updates from the
@@ -13,8 +14,12 @@ class DeviceRegistry {
 
     private val devices = LinkedHashMap<String, DiscoveredDevice>()
 
-    /** Merge [found] in, applying [nickname] as the display name. Returns the list. */
-    fun upsert(found: DiscoveredDevice, nickname: String?): List<DiscoveredDevice> {
+    /**
+     * Merge [found] in, applying [nickname] and [role] as user overlays (both
+     * persisted per device id in Prefs and re-applied on every upsert). Returns
+     * the list.
+     */
+    fun upsert(found: DiscoveredDevice, nickname: String?, role: Role?): List<DiscoveredDevice> {
         val existing = devices[found.id]
         val merged = if (existing == null) {
             found
@@ -27,13 +32,19 @@ class DeviceRegistry {
                 deviceType = if (found.deviceType != "unknown") found.deviceType else existing.deviceType,
             )
         }
-        devices[found.id] = merged.copy(nickname = nickname)
+        devices[found.id] = merged.copy(nickname = nickname, role = role)
         return devices.values.toList()
     }
 
     /** Set the friendly name for a device already known. Returns the list. */
     fun rename(id: String, nickname: String?): List<DiscoveredDevice> {
         devices[id]?.let { devices[id] = it.copy(nickname = nickname) }
+        return devices.values.toList()
+    }
+
+    /** Set the capture role for a device already known. Returns the list. */
+    fun setRole(id: String, role: Role?): List<DiscoveredDevice> {
+        devices[id]?.let { devices[id] = it.copy(role = role) }
         return devices.values.toList()
     }
 }

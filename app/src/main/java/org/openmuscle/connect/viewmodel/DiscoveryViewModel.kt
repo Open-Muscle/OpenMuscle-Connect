@@ -17,6 +17,7 @@ import org.openmuscle.connect.discovery.NsdDiscovery
 import org.openmuscle.connect.discovery.toCached
 import org.openmuscle.connect.discovery.toDiscovered
 import org.openmuscle.connect.domain.DiscoveredDevice
+import org.openmuscle.connect.domain.Role
 import org.openmuscle.connect.domain.TransportKind
 import org.openmuscle.connect.transport.DeviceProbe
 
@@ -85,10 +86,20 @@ class DiscoveryViewModel(app: Application) : AndroidViewModel(app) {
         _state.value = registry.rename(id, nick)
     }
 
+    /** Assign or clear a capture role (left/right/labeler) for a device; persists and updates. */
+    fun setRole(id: String, role: Role?) {
+        Prefs.setRole(getApplication(), id, role)
+        _state.value = registry.setRole(id, role)
+    }
+
     private fun upsert(found: DiscoveredDevice, persist: Boolean = false) {
         lastSeen[found.id] = System.currentTimeMillis()
-        // Stored nickname is authoritative for display.
-        _state.value = registry.upsert(found, Prefs.nickname(getApplication(), found.id))
+        // Stored nickname + role are authoritative user overlays.
+        _state.value = registry.upsert(
+            found,
+            Prefs.nickname(getApplication(), found.id),
+            Prefs.role(getApplication(), found.id),
+        )
         if (persist) persistCache()
     }
 
@@ -97,7 +108,11 @@ class DiscoveryViewModel(app: Application) : AndroidViewModel(app) {
         val cached = DeviceCache.decode(Prefs.deviceCacheJson(getApplication()))
         cached.forEach { c ->
             lastSeen[c.id] = c.lastSeenMs
-            _state.value = registry.upsert(c.toDiscovered(), Prefs.nickname(getApplication(), c.id))
+            _state.value = registry.upsert(
+                c.toDiscovered(),
+                Prefs.nickname(getApplication(), c.id),
+                Prefs.role(getApplication(), c.id),
+            )
         }
         reprobeCache(cached)
     }
@@ -120,6 +135,7 @@ class DiscoveryViewModel(app: Application) : AndroidViewModel(app) {
                 _state.value = registry.upsert(
                     c.toDiscovered().copy(deviceType = info.deviceType),
                     Prefs.nickname(getApplication(), c.id),
+                    Prefs.role(getApplication(), c.id),
                 )
                 persistCache()
             }

@@ -18,4 +18,6 @@ data class DiscoveredDevice(
     val cmdPort: Int? = null,
     val rssi: Int? = null,
     val nickname: String? = null,
+    /** Hub-assigned capture role (left/right/labeler); null until the user tags it. */
+    val role: Role? = null,
 )

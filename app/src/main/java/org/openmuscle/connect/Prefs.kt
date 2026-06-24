@@ -1,6 +1,7 @@
 package org.openmuscle.connect
 
 import android.content.Context
+import org.openmuscle.connect.domain.Role
 
 /**
  * Tiny SharedPreferences wrapper for the few things the app remembers between
@@ -10,6 +11,7 @@ object Prefs {
     private const val FILE = "om_connect_prefs"
     private const val KEY_DEVICE = "selected_device_id"
     private const val KEY_NICK_PREFIX = "nick_"
+    private const val KEY_ROLE_PREFIX = "role_"
     private const val KEY_DEVICE_CACHE = "device_cache_json"
 
     fun selectedDeviceId(ctx: Context): String? =
@@ -28,6 +30,16 @@ object Prefs {
     fun setNickname(ctx: Context, id: String, name: String?) {
         val editor = prefs(ctx).edit()
         if (name.isNullOrBlank()) editor.remove(KEY_NICK_PREFIX + id) else editor.putString(KEY_NICK_PREFIX + id, name)
+        editor.apply()
+    }
+
+    /** Hub-assigned capture role for a device id (left/right/labeler), or null. */
+    fun role(ctx: Context, id: String): Role? =
+        Role.fromWire(prefs(ctx).getString(KEY_ROLE_PREFIX + id, null))
+
+    fun setRole(ctx: Context, id: String, role: Role?) {
+        val editor = prefs(ctx).edit()
+        if (role == null) editor.remove(KEY_ROLE_PREFIX + id) else editor.putString(KEY_ROLE_PREFIX + id, role.wire)
         editor.apply()
     }
 
