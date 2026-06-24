@@ -24,7 +24,10 @@ import java.util.concurrent.atomic.AtomicInteger
  * Lifecycle: [connect] opens the socket, starts a reader, sends a `subscribe`
  * so the device begins unicasting sensor frames to our UDP port, then runs a
  * ~1 Hz `heartbeat` to hold the subscription (the device drops us after ~5 s of
- * silence). [close] best-effort `unsubscribe`s and tears the socket down.
+ * silence). If the TCP socket drops, the heartbeat loop reopens it and
+ * re-subscribes (hub conformance 10.4), so a transient blip or a device reboot
+ * self-heals rather than silently going dark. [close] best-effort `unsubscribe`s
+ * and tears the socket down.
  *
  * Only the control plane is TCP. Sensor frames still arrive over UDP on
  * [sensorPort]; this channel never touches them. The data path (UdpReceiver) is
@@ -58,29 +61,58 @@ class TcpControlChannel(
     var connected: Boolean = false
         private set
 
+    /** Set once [close] is called, so the heartbeat loop stops reconnecting. */
+    @Volatile
+    private var closed = false
+
     /**
      * Open the socket and subscribe. Returns the subscribe ack: `ok` means the
      * device accepted us and frames should start flowing to [sensorPort]. On a
      * connect failure returns a non-ok ack with the reason.
      */
     suspend fun connect(): Ack {
-        try {
-            withContext(dispatcher) {
-                val s = Socket()
-                s.connect(InetSocketAddress(host, cmdPort), CONNECT_TIMEOUT_MS)
-                s.tcpNoDelay = true
-                socket = s
-                writer = s.getOutputStream().bufferedWriter(Charsets.UTF_8)
-                readerJob = scope.launch(dispatcher) { readLoop(s) }
-            }
-        } catch (e: Exception) {
+        if (!openSocket()) {
             connected = false
-            return Ack(ok = false, error = "connect failed: ${e.message}")
+            return Ack(ok = false, error = "connect failed")
         }
-        connected = true
         val ack = sendCommand(Command.Subscribe(port = sensorPort, hubId = hubId))
+        connected = ack.ok
         if (ack.ok) startHeartbeat()
         return ack
+    }
+
+    /** Open (or re-open) the TCP socket + reader. Returns false on connect failure. */
+    private suspend fun openSocket(): Boolean = withContext(dispatcher) {
+        try {
+            readerJob?.cancel()
+            val s = Socket()
+            s.connect(InetSocketAddress(host, cmdPort), CONNECT_TIMEOUT_MS)
+            s.tcpNoDelay = true
+            socket = s
+            writer = s.getOutputStream().bufferedWriter(Charsets.UTF_8)
+            readerJob = scope.launch(dispatcher) { readLoop(s) }
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Hub conformance 10.4: the socket dropped, so reopen it and re-subscribe.
+     * Do not assume the prior subscription survived the device's view.
+     */
+    private suspend fun reconnect() {
+        try {
+            socket?.close()
+        } catch (e: Exception) {
+            // ignore; we are replacing it
+        }
+        if (closed) return
+        connected = if (openSocket()) {
+            sendCommand(Command.Subscribe(port = sensorPort, hubId = hubId)).ok
+        } else {
+            false
+        }
     }
 
     suspend fun sendCommand(command: Command, ackTimeoutMs: Long = ACK_TIMEOUT_MS): Ack {
@@ -136,6 +168,7 @@ class TcpControlChannel(
 
     /** Best-effort unsubscribe, then tear down. Safe to call more than once. */
     fun close() {
+        closed = true   // stop the heartbeat loop from reconnecting
         heartbeatJob?.cancel()
         heartbeatJob = null
         connected = false
@@ -188,9 +221,16 @@ class TcpControlChannel(
     private fun startHeartbeat() {
         heartbeatJob?.cancel()
         heartbeatJob = scope.launch(dispatcher) {
-            while (true) {
+            while (!closed) {
                 delay(HEARTBEAT_MS)
-                sendCommand(Command.Heartbeat(port = sensorPort))
+                if (closed) break
+                if (connected) {
+                    // A failed heartbeat (write error or ack timeout) means the
+                    // socket/subscription is likely gone; recover on the next tick.
+                    if (!sendCommand(Command.Heartbeat(port = sensorPort)).ok) connected = false
+                } else {
+                    reconnect()   // 10.4: dropped (or last heartbeat failed); reopen + resubscribe
+                }
             }
         }
     }

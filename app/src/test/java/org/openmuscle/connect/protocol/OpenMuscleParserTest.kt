@@ -52,6 +52,19 @@ class OpenMuscleParserTest {
     }
 
     @Test
+    fun rejectsIncompatibleMajorVersion() {
+        // 10.7 / PROTOCOL.md 4: a major-version bump is incompatible and must be rejected;
+        // a 0.x legacy version too.
+        val v2 = """{"v":"2.0","type":"flexgrid","id":"x","ts":1,"data":{"matrix":[[1,2,3,4]]}}"""
+        assertEquals(ParsedPacket.Ignored, OpenMuscleParser.parse(v2, 0))
+        val v0 = """{"v":"0.9","type":"flexgrid","id":"x","ts":1,"data":{"matrix":[[1,2,3,4]]}}"""
+        assertEquals(ParsedPacket.Ignored, OpenMuscleParser.parse(v0, 0))
+        // A minor bump (1.x) stays compatible (additive per PROTOCOL.md 4).
+        val v17 = """{"v":"1.7","type":"flexgrid","id":"x","ts":1,"data":{"matrix":[[1,2,3,4]]}}"""
+        assertTrue(OpenMuscleParser.parse(v17, 0) is ParsedPacket.Sensor)
+    }
+
+    @Test
     fun ignoresUnknownType() {
         val json = """{"v":"1.0","type":"quest_hand","id":"q","ts":1,"data":{}}"""
         assertEquals(ParsedPacket.Ignored, OpenMuscleParser.parse(json, 0))

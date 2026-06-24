@@ -61,7 +61,11 @@ object OpenMuscleParser {
             return ParsedPacket.Ignored
         }
         val obj = root as? JsonObject ?: return ParsedPacket.Ignored
-        if ("v" !in obj) return ParsedPacket.Ignored   // v1.0 marker; legacy ignored
+        // Require a version and reject an incompatible MAJOR bump (PROTOCOL.md 4 /
+        // hub conformance 10.7). Legacy frames without `v` are ignored here (V3
+        // bare-array / dict-literal compat is a separate, not-yet-implemented gap).
+        val version = obj.prim("v")?.contentOrNull ?: return ParsedPacket.Ignored
+        if (!isCompatibleMajor(version)) return ParsedPacket.Ignored
 
         val type = obj.prim("type")?.contentOrNull ?: return ParsedPacket.Ignored
         val id = obj.prim("id")?.contentOrNull ?: "unknown"
@@ -162,6 +166,10 @@ object OpenMuscleParser {
     )
 
     private fun JsonObject.prim(key: String): JsonPrimitive? = this[key] as? JsonPrimitive
+
+    /** v1.x is compatible (minor changes are additive, PROTOCOL.md 4); any other major is not. */
+    private fun isCompatibleMajor(version: String): Boolean =
+        version.substringBefore('.').toIntOrNull() == 1
 
     /** Sensor ADC values are integers, but tolerate "100.0" style floats. */
     private fun JsonElement.asInt(): Int {
