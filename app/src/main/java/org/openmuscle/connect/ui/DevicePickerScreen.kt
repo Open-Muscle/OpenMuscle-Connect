@@ -47,6 +47,7 @@ fun DevicePickerScreen(
     onSkip: () -> Unit,
     onRename: (String, String) -> Unit,
     onSetRole: (String, Role?) -> Unit,
+    onMultiCapture: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var editing by remember { mutableStateOf<DiscoveredDevice?>(null) }
@@ -93,6 +94,10 @@ fun DevicePickerScreen(
             Spacer(Modifier.height(16.dp))
             OutlinedButton(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
                 Text("Show any device")
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = onMultiCapture, modifier = Modifier.fillMaxWidth()) {
+                Text("Multi-device capture (tagged sources)")
             }
         }
     }
