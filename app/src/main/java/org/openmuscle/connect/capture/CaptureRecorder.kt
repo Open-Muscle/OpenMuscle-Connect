@@ -22,7 +22,7 @@ class CaptureRecorder(
 ) {
     /** When non-null, every sensor frame is labeled with this vector. */
     @Volatile
-    var manualLabel: List<Int>? = null
+    var manualLabel: List<Double>? = null
 
     // Volatile so the UI ticker can read live stats from a different thread than
     // the one writing rows.

@@ -25,7 +25,7 @@ class CsvSessionWriter(
     var rowCount: Long = 0
         private set
 
-    fun writeRow(timestamp: Long, sensorValues: IntArray, labelValues: List<Int>) {
+    fun writeRow(timestamp: Long, sensorValues: IntArray, labelValues: List<Double>) {
         if (!headerWritten) writeHeader(labelCount ?: labelValues.size)
         val sb = StringBuilder()
         sb.append(timestamp)
@@ -33,6 +33,9 @@ class CsvSessionWriter(
             sb.append(',').append(v)
         }
         for (v in labelValues) {
+            // Label floats use Double.toString, which matches Python's str(float)
+            // shortest-round-trip output for the [0,1] LASK5 range, keeping the
+            // CSV byte-compatible with the PC CaptureWriter (csv.writer -> str()).
             sb.append(',').append(v)
         }
         sb.append(CRLF)

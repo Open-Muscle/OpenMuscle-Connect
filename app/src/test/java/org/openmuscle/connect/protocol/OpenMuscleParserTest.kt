@@ -33,11 +33,12 @@ class OpenMuscleParserTest {
     @Test
     fun parsesLask5() {
         val json = """{"v":"1.0","type":"lask5","id":"lask5-01","ts":42,""" +
-            """"data":{"values":[11,22,33,44],"joystick":{"x":2048,"y":1900}}}"""
+            """"data":{"values":[1.0,0.5,0.9942197,0],"joystick":{"x":2048,"y":1900}}}"""
         val p = OpenMuscleParser.parse(json, 5L)
         assertTrue(p is ParsedPacket.Label)
         val l = (p as ParsedPacket.Label).frame
-        assertEquals(listOf(11, 22, 33, 44), l.values)
+        // Calibrated floats preserved; an int-encoded JSON value (0) parses to 0.0.
+        assertEquals(listOf(1.0, 0.5, 0.9942197, 0.0), l.values)
         assertEquals(2048, l.joystickX)
         assertEquals(1900, l.joystickY)
     }
@@ -115,9 +116,11 @@ class OpenMuscleParserTest {
 
     @Test
     fun parsesNegativeLaskValues() {
+        // Calibrated LASK5 values are [0,1], but the parser must still round-trip
+        // arbitrary (incl. negative, incl. int-encoded) values as floats.
         val json = """{"v":"1.0","type":"lask5","id":"l","ts":1,"data":{"values":[-30,-35,-30,-37]}}"""
         val l = (OpenMuscleParser.parse(json, 0) as ParsedPacket.Label).frame
-        assertEquals(listOf(-30, -35, -30, -37), l.values)
+        assertEquals(listOf(-30.0, -35.0, -30.0, -37.0), l.values)
     }
 
     @Test

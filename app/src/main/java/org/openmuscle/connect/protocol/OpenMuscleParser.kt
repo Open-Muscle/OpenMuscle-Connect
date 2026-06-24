@@ -135,7 +135,9 @@ object OpenMuscleParser {
         receiveTimeMs: Long,
     ): ParsedPacket {
         val valuesEl = data["values"] as? JsonArray ?: return ParsedPacket.Ignored
-        val values = valuesEl.map { it.asInt() }
+        // LASK5 values are calibrated floats in [0,1] (PROTOCOL.md 7.2); keep the
+        // full precision. Truncating to int here would flatten the label gradient.
+        val values = valuesEl.map { it.asDouble() }
         val joystick = data["joystick"] as? JsonObject
         return ParsedPacket.Label(
             LabelFrame(
@@ -161,9 +163,15 @@ object OpenMuscleParser {
 
     private fun JsonObject.prim(key: String): JsonPrimitive? = this[key] as? JsonPrimitive
 
-    /** ADC and label values are integers, but tolerate "100.0" style floats. */
+    /** Sensor ADC values are integers, but tolerate "100.0" style floats. */
     private fun JsonElement.asInt(): Int {
         val p = this as? JsonPrimitive ?: return 0
         return p.intOrNull ?: p.doubleOrNull?.toInt() ?: 0
+    }
+
+    /** Label values are floats; tolerate an integer-encoded JSON value too. */
+    private fun JsonElement.asDouble(): Double {
+        val p = this as? JsonPrimitive ?: return 0.0
+        return p.doubleOrNull ?: p.intOrNull?.toDouble() ?: 0.0
     }
 }

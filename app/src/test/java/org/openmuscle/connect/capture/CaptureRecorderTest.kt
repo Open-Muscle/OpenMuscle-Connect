@@ -23,7 +23,7 @@ class CaptureRecorderTest {
     private fun label(rt: Long, vals: List<Int>) = LabelFrame(
         deviceId = "lask5-01",
         deviceType = "lask5",
-        values = vals,
+        values = vals.map { it.toDouble() },   // label values are floats now
         deviceTimestampMs = 0,
         receiveTimeMs = rt,
     )
@@ -38,7 +38,7 @@ class CaptureRecorderTest {
         assertEquals(1L, rec.seen)
         assertEquals(
             "timestamp,R0C0,R0C1,R0C2,R1C0,R1C1,R1C2,label_0,label_1\r\n" +
-                "1010,0,10,20,1,11,21,100,200\r\n",
+                "1010,0,10,20,1,11,21,100.0,200.0\r\n",
             sw.toString(),
         )
     }
@@ -57,14 +57,14 @@ class CaptureRecorderTest {
     fun manualLabelAppliesToEveryFrame() {
         val sw = StringWriter()
         val rec = CaptureRecorder(CsvSessionWriter(sw, rows = 2, cols = 3, labelCount = 2))
-        rec.manualLabel = listOf(7, 8)
+        rec.manualLabel = listOf(7.0, 8.0)
         rec.onSensor(sensor(10))
         rec.onSensor(sensor(20))
         assertEquals(2L, rec.matched)
         assertEquals(
             "timestamp,R0C0,R0C1,R0C2,R1C0,R1C1,R1C2,label_0,label_1\r\n" +
-                "10,0,10,20,1,11,21,7,8\r\n" +
-                "20,0,10,20,1,11,21,7,8\r\n",
+                "10,0,10,20,1,11,21,7.0,8.0\r\n" +
+                "20,0,10,20,1,11,21,7.0,8.0\r\n",
             sw.toString(),
         )
     }

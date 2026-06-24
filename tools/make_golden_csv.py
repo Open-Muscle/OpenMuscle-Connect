@@ -27,8 +27,8 @@ ROWS, COLS = 2, 3
 # are intentional: Python's csv.writer emits them, so the phone must too.
 EXPECTED = (
     "timestamp,R0C0,R0C1,R0C2,R1C0,R1C1,R1C2,label_0,label_1\r\n"
-    "1000,0,10,20,1,11,21,100,200\r\n"
-    "1020,100,110,120,101,111,121,105,205\r\n"
+    "1000,0,10,20,1,11,21,1.0,0.9942197\r\n"
+    "1020,100,110,120,101,111,121,0.0,0.5\r\n"
 )
 
 
@@ -45,8 +45,10 @@ def main():
         path = str(Path(td) / "golden.csv")
         with CaptureWriter(output_path=path, matrix_rows=ROWS,
                            matrix_cols=COLS, label_count=2) as w:
-            w.write_row(1000, flatten(m1), [100, 200])
-            w.write_row(1020, flatten(m2), [105, 205])
+            # Float labels in the LASK5 [0,1] range, incl. a 7-sig-fig value, to
+            # prove Kotlin Double.toString matches Python str(float) byte for byte.
+            w.write_row(1000, flatten(m1), [1.0, 0.9942197])
+            w.write_row(1020, flatten(m2), [0.0, 0.5])
         data = Path(path).read_bytes().decode("utf-8")
 
     print("real PC CaptureWriter output (repr):")

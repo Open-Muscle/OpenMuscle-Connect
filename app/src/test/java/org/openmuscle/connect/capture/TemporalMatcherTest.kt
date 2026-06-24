@@ -12,7 +12,7 @@ class TemporalMatcherTest {
         LabelFrame(
             deviceId = "lask5-01",
             deviceType = "lask5",
-            values = vals,
+            values = vals.map { it.toDouble() },   // label values are floats now
             deviceTimestampMs = 0,
             receiveTimeMs = rt,
         )
@@ -22,7 +22,7 @@ class TemporalMatcherTest {
         val m = TemporalMatcher(windowMs = 100)
         m.addLabel(label(1000, listOf(1, 1, 1, 1)))   // 50 ms before
         m.addLabel(label(1080, listOf(2, 2, 2, 2)))   // 30 ms after -> closer
-        assertEquals(listOf(2, 2, 2, 2), m.match(1050)?.values)
+        assertEquals(listOf(2.0, 2.0, 2.0, 2.0), m.match(1050)?.values)
     }
 
     @Test
@@ -39,7 +39,7 @@ class TemporalMatcherTest {
         m.addLabel(label(1000, listOf(1, 1, 1, 1)))
         assertNull(m.match(2000))   // old label pruned, unpaired
         m.addLabel(label(2010, listOf(5, 5, 5, 5)))
-        assertEquals(listOf(5, 5, 5, 5), m.match(2020)?.values)
+        assertEquals(listOf(5.0, 5.0, 5.0, 5.0), m.match(2020)?.values)
     }
 
     // Boundary cases. 99 ms in / 101 ms out are cross-verified against the PC

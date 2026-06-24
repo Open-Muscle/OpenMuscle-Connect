@@ -120,7 +120,12 @@ class CaptureViewModel(app: Application) : AndroidViewModel(app) {
             rec = CaptureRecorder(writer)
             recorder = rec
         }
-        rec.manualLabel = if (_state.value.manualMode) _state.value.manualLabel else null
+        // UI manual labels are ints (slider); the recorder/CSV path is float, so
+        // convert at the boundary. Note: manual labels are 0..4095 (raw slider
+        // scale) while LASK5 labels are [0,1] - a known scale mismatch flagged to
+        // the team, not fixed here.
+        rec.manualLabel =
+            if (_state.value.manualMode) _state.value.manualLabel.map { it.toDouble() } else null
         rec.onSensor(frame)
         if (rec.seen % FLUSH_EVERY == 0L) rec.flush()
     }
