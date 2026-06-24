@@ -69,7 +69,7 @@ class ConnectViewModel(app: Application) : AndroidViewModel(app) {
         if (host != null && cmdPort != null) {
             _state.update { it.copy(lastCommand = "subscribing...") }
             viewModelScope.launch {
-                val ack = link.connectControl(host, cmdPort, device.port ?: 3141)
+                val ack = link.connectControl(device.id, host, cmdPort, device.port ?: 3141)
                 _state.update {
                     it.copy(
                         controlConnected = ack.ok,

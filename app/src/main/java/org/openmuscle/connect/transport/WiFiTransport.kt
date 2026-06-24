@@ -7,6 +7,8 @@ import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.shareIn
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.openmuscle.connect.domain.DeviceStatus
 import org.openmuscle.connect.domain.DiscoveredDevice
 import org.openmuscle.connect.domain.LabelFrame
@@ -14,18 +16,26 @@ import org.openmuscle.connect.domain.SensorFrame
 import org.openmuscle.connect.domain.TransportKind
 import org.openmuscle.connect.protocol.ParsedPacket
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Wi-Fi transport. The data plane is one shared UDP socket on [SENSOR_PORT] (via
  * [UdpReceiver], bound once and fanned out): discovery beacons and sensor frames
- * arrive on the same socket. The control plane is an optional TCP command channel
- * ([TcpControlChannel]) to a discovered device, opened by [connectControl] once a
- * host and cmd port are known.
+ * arrive on the same socket, and frames are demultiplexed by device id downstream.
  *
- * V4 devices unicast sensor frames only to subscribers, so [connectControl] both
- * opens the control channel and subscribes us; without it, a V4 device sends
- * nothing. V3-style broadcast devices still light up the heatmap with no control
- * channel at all (the UDP path is unchanged).
+ * The control plane is a set of TCP command channels ([TcpControlChannel]), one
+ * per subscribed device, keyed by device id. V4 devices unicast sensor frames only
+ * to subscribers, so a device is silent until it has a channel; V3-style broadcast
+ * devices still light up the heatmap with no channel (the UDP path is unchanged).
+ *
+ * Two entry points:
+ *  - [connectControl] is the single-device case (the heatmap): subscribe to one
+ *    device, dropping any others. This is the N=1 path.
+ *  - [subscribe] / [unsubscribe] add and remove individual subscriptions without
+ *    touching the others, for multi-device capture (two bands + a labeler at once).
+ *
+ * Subscription changes are serialized by [subLock] so concurrent open/close from
+ * different view models cannot race the channel map.
  */
 class WiFiTransport(
     private val scope: CoroutineScope,
@@ -38,32 +48,82 @@ class WiFiTransport(
     /** Stable-ish id this hub presents to devices (used as the subscription key). */
     private val hubId: String = "om-android-" + UUID.randomUUID().toString().take(8)
 
-    private var control: TcpControlChannel? = null
+    private val controls = ConcurrentHashMap<String, TcpControlChannel>()
+    private val subLock = Mutex()
+
+    /** The device the single-device interface methods (getInfo/sendCommand) target. */
+    @Volatile
+    private var activeDeviceId: String? = null
+
     private var activeSessionId: String? = null
 
     val controlConnected: Boolean
-        get() = control?.connected == true
+        get() = activeDeviceId?.let { controls[it]?.connected } == true
 
     /**
-     * Open the TCP command channel to a device and subscribe so it starts
-     * unicasting sensor frames to us. [cmdPort] comes from the announce's
-     * `services.cmd` (default 8001); [sensorPort] is the UDP port we receive on.
-     * Suspends until the subscribe is acked. Safe to call again to switch devices.
+     * Single-device select (the heatmap): subscribe to [deviceId] and drop every
+     * other subscription, so exactly one device streams. Returns the subscribe ack.
      */
     suspend fun connectControl(
+        deviceId: String,
         host: String,
         cmdPort: Int,
         sensorPort: Int = SENSOR_PORT,
-    ): Ack {
-        closeControl()
-        val channel = TcpControlChannel(host, cmdPort, hubId, sensorPort, scope)
-        control = channel
-        return channel.connect()
+    ): Ack = subLock.withLock {
+        controls.keys.filter { it != deviceId }.forEach { id -> controls.remove(id)?.close() }
+        activeDeviceId = deviceId
+        ensureSubscribedLocked(deviceId, host, cmdPort, sensorPort)
     }
 
-    private fun closeControl() {
-        control?.close()
-        control = null
+    /**
+     * Add a subscription for [deviceId] without touching others (multi-device
+     * capture). Idempotent: a device already subscribed returns ok.
+     */
+    suspend fun subscribe(
+        deviceId: String,
+        host: String,
+        cmdPort: Int,
+        sensorPort: Int = SENSOR_PORT,
+    ): Ack = subLock.withLock {
+        ensureSubscribedLocked(deviceId, host, cmdPort, sensorPort)
+    }
+
+    /** Drop one device's subscription. */
+    suspend fun unsubscribe(deviceId: String) = subLock.withLock {
+        controls.remove(deviceId)?.close()
+        if (activeDeviceId == deviceId) activeDeviceId = null
+    }
+
+    /** Drop every subscription. */
+    suspend fun unsubscribeAll() = subLock.withLock {
+        controls.values.forEach { it.close() }
+        controls.clear()
+        activeDeviceId = null
+    }
+
+    /** Device ids currently subscribed. */
+    fun subscribedIds(): Set<String> = controls.keys.toSet()
+
+    /** Send a command to a specific subscribed device (multi-device control). */
+    suspend fun sendCommandTo(deviceId: String, command: Command): Ack =
+        controls[deviceId]?.sendCommand(command) ?: Ack(ok = false, error = "not subscribed: $deviceId")
+
+    /** Must hold [subLock]. Opens a channel if the device is not already subscribed. */
+    private suspend fun ensureSubscribedLocked(
+        deviceId: String,
+        host: String,
+        cmdPort: Int,
+        sensorPort: Int,
+    ): Ack {
+        if (controls.containsKey(deviceId)) return Ack(ok = true, verb = "subscribe")
+        val channel = TcpControlChannel(host, cmdPort, hubId, sensorPort, scope)
+        controls[deviceId] = channel
+        val ack = channel.connect()
+        if (!ack.ok) {
+            controls.remove(deviceId)
+            channel.close()
+        }
+        return ack
     }
 
     override fun sensorFrames(): Flow<SensorFrame> =
@@ -89,10 +149,11 @@ class WiFiTransport(
             )
         }
 
-    override suspend fun getInfo(): DeviceInfo? = control?.getInfo()
+    override suspend fun getInfo(): DeviceInfo? = activeDeviceId?.let { controls[it]?.getInfo() }
 
     override suspend fun sendCommand(command: Command): Ack =
-        control?.sendCommand(command) ?: Ack(ok = false, error = "no control channel")
+        activeDeviceId?.let { controls[it]?.sendCommand(command) }
+            ?: Ack(ok = false, error = "no active control channel")
 
     // Sessions are app-local: the V4 firmware has no session verb, so these just
     // track the active session id for the recording/CSV layer to stamp.
@@ -104,9 +165,7 @@ class WiFiTransport(
         activeSessionId = null
     }
 
-    override suspend fun close() {
-        closeControl()
-    }
+    override suspend fun close() = unsubscribeAll()
 
     companion object {
         const val SENSOR_PORT = 3141
