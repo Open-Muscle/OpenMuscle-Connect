@@ -95,6 +95,11 @@ class ProvisioningClient(context: Context) {
      * it back into setup mode. Unlike the AP handshake this runs on the default
      * network (the device is at [host]:80 on the home LAN), so it is not bound to a
      * specific Network. Returns true if the device acked ok. Destructive: confirm first.
+     *
+     * NOTE (board #0141): firmware's current V4 build serves the provisioning HTTP
+     * endpoints only in AP mode, so port 80 is unbound once the device is on STA.
+     * This URL is spec-correct, but expect a false return against a provisioned
+     * device until firmware adds the STA-mode /reprovision listener (their gap vs 4.3).
      */
     suspend fun reprovision(host: String): Boolean = withContext(Dispatchers.IO) {
         val req = Request.Builder()
