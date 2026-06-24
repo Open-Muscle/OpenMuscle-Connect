@@ -31,6 +31,16 @@ class OpenMuscleParserTest {
     }
 
     @Test
+    fun parsesResetCauseFromStatusMeta() {
+        val json = """{"v":"1.0","type":"flexgrid","id":"flexgrid-d7af0b","ts":7,""" +
+            """"data":{"matrix":${matrixJson()},"rows":4,"cols":15},""" +
+            """"meta":{"pct":57,"rssi":-55,"reset_cause":3,"reset_cause_name":"wdt"}}"""
+        val f = (OpenMuscleParser.parse(json, 0L) as ParsedPacket.Sensor).frame
+        assertEquals(3, f.status?.resetCause)
+        assertEquals("wdt", f.status?.resetCauseName)
+    }
+
+    @Test
     fun parsesLask5() {
         val json = """{"v":"1.0","type":"lask5","id":"lask5-01","ts":42,""" +
             """"data":{"values":[1.0,0.5,0.9942197,0],"joystick":{"x":2048,"y":1900}}}"""

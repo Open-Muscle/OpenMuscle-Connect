@@ -163,6 +163,8 @@ object OpenMuscleParser {
         freeMem = meta.prim("free_mem")?.longOrNull,
         uptimeS = meta.prim("uptime_s")?.longOrNull,
         scanRateHz = meta.prim("scan_rate_hz")?.intOrNull,
+        resetCause = meta.prim("reset_cause")?.intOrNull,
+        resetCauseName = meta.prim("reset_cause_name")?.contentOrNull,
     )
 
     private fun JsonObject.prim(key: String): JsonPrimitive? = this[key] as? JsonPrimitive

@@ -1,6 +1,7 @@
 package org.openmuscle.connect.viewmodel
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
@@ -47,10 +48,15 @@ class ConnectViewModel(app: Application) : AndroidViewModel(app) {
     private var collectJob: Job? = null
     private var deviceFilter: String? = null
 
+    // Last reset_cause_name logged for the current device/session, so we log once
+    // per (re)connect or reboot instead of every 1 Hz status frame (PROTOCOL.md 7.4).
+    private var lastResetCause: String? = null
+
     /** Limit the heatmap to one device id, or null for any device. */
     fun setFilter(deviceId: String?) {
         deviceFilter = deviceId
         hzMeter.reset()
+        lastResetCause = null
         _state.update {
             it.copy(frame = null, hz = 0f, packetCount = 0, deviceId = deviceId)
         }
@@ -117,12 +123,15 @@ class ConnectViewModel(app: Application) : AndroidViewModel(app) {
         collectJob?.cancel()
         collectJob = null
         hzMeter.reset()
+        lastResetCause = null
         _state.update { it.copy(listening = false, hz = 0f) }
     }
 
     private fun onFrame(frame: SensorFrame) {
         val filter = deviceFilter
         if (filter != null && frame.deviceId != filter) return
+
+        logResetCauseOnce(frame)
 
         val hz = hzMeter.record(frame.receiveTimeMs)
         _state.update {
@@ -134,5 +143,23 @@ class ConnectViewModel(app: Application) : AndroidViewModel(app) {
                 deviceId = frame.deviceId,
             )
         }
+    }
+
+    /**
+     * Log the device's last reset cause once per (re)connect so a silent watchdog
+     * reset is visible instead of looking like a mystery dropout (PROTOCOL.md 7.4
+     * SHOULD). wdt/hard resets log at WARN so they stand out in logcat.
+     */
+    private fun logResetCauseOnce(frame: SensorFrame) {
+        val status = frame.status ?: return
+        val cause = status.resetCauseName ?: return
+        if (cause == lastResetCause) return
+        lastResetCause = cause
+        val msg = "device ${frame.deviceId} last reset: $cause (code ${status.resetCause})"
+        if (cause == "wdt" || cause == "hard") Log.w(TAG, msg) else Log.i(TAG, msg)
+    }
+
+    private companion object {
+        const val TAG = "OmStatus"
     }
 }

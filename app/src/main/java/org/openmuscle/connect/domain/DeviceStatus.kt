@@ -12,4 +12,8 @@ data class DeviceStatus(
     val freeMem: Long? = null,
     val uptimeS: Long? = null,
     val scanRateHz: Int? = null,
+    /** machine.reset_cause() integer; pairs with [resetCauseName] (PROTOCOL.md 7.4). */
+    val resetCause: Int? = null,
+    /** Human form of the last reset: pwr / hard / soft / wdt / deep. Logged on reconnect. */
+    val resetCauseName: String? = null,
 )
