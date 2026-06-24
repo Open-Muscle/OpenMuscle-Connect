@@ -63,6 +63,11 @@ class CaptureViewModel(app: Application) : AndroidViewModel(app) {
     private var tickerJob: Job? = null
     private var startElapsed = 0L
 
+    // Captured at start / first frame, used to write the meta sidecar at finish.
+    private var activeFile: java.io.File? = null
+    private var activeDeviceId: String? = null
+    private var activeRole: Role? = null
+
     init {
         refreshSessions()
     }
@@ -79,6 +84,9 @@ class CaptureViewModel(app: Application) : AndroidViewModel(app) {
         if (_state.value.recording) return
         val file = store.newSessionFile()
         recorder = null
+        activeFile = file
+        activeDeviceId = null
+        activeRole = null
         startElapsed = System.currentTimeMillis()
         _state.update {
             it.copy(recording = true, rows = 0, matchRate = 0f, elapsedMs = 0, activeFileName = file.name)
@@ -124,6 +132,8 @@ class CaptureViewModel(app: Application) : AndroidViewModel(app) {
             val role = Prefs.role(getApplication(), frame.deviceId) ?: Role.LEFT
             rec = CaptureRecorder(writer, role)
             recorder = rec
+            activeDeviceId = frame.deviceId
+            activeRole = role
         }
         // UI manual labels are ints (slider); the recorder/CSV path is float, so
         // convert at the boundary. Note: manual labels are 0..4095 (raw slider
@@ -149,8 +159,26 @@ class CaptureViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             job?.cancelAndJoin()
             rec?.finish()
+            writeMetaSidecar()
             _state.update { it.copy(sessions = store.list()) }
         }
+    }
+
+    /** Write the `<capture>.meta.json` sidecar (single source, never mirrored). */
+    private fun writeMetaSidecar() {
+        val csv = activeFile ?: return
+        val deviceId = activeDeviceId ?: return   // no frames captured -> no sidecar
+        val meta = org.openmuscle.connect.capture.CaptureMeta(
+            mirror = false,
+            labelSource = if (_state.value.manualMode) "manual" else "lask5",
+            roles = mapOf(deviceId to (activeRole ?: Role.LEFT)),
+            createdMs = System.currentTimeMillis(),
+        )
+        val sidecar = java.io.File(csv.parentFile, org.openmuscle.connect.capture.CaptureMetaCodec.sidecarName(csv.name))
+        runCatching { sidecar.writeText(org.openmuscle.connect.capture.CaptureMetaCodec.encode(meta)) }
+        activeFile = null
+        activeDeviceId = null
+        activeRole = null
     }
 
     fun deleteSession(name: String) {
