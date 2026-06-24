@@ -36,7 +36,7 @@ For the broader project mission, see [openmuscle.org](https://openmuscle.org).
 
 ## Status and roadmap
 
-The app is scaffolded in native Kotlin and Jetpack Compose with a working v1 over the Wi-Fi transport: device discovery, the live 15 by 4 sensor heatmap, labeled session capture exported in the PC's exact training CSV format, a Wi-Fi command channel, and on-device inference that runs a PC-trained model exported to ONNX. The Bluetooth transport is implemented on the app side but gated on V4 firmware, which does not expose the BLE service yet; VR pairing is still an open design question.
+The app is scaffolded in native Kotlin and Jetpack Compose with a working v1 over the Wi-Fi transport: device discovery, the live 15 by 4 sensor heatmap, labeled session capture exported in the PC's exact training CSV format, a Wi-Fi command channel, and on-device inference that runs a PC-trained model exported to ONNX. Newer work adds Wi-Fi onboarding for a fresh device (scan its setup access point, push your home Wi-Fi credentials, confirm it rejoined the LAN) and multi-device tagged capture (left/right/labeler roles into a v2 CSV schema with bilateral pairing). The Bluetooth transport is implemented on the app side but gated on V4 firmware, which does not expose the BLE service yet; VR pairing is still an open design question.
 
 The cross-format contracts (wire format, training CSV, control messages, the BLE binary frame, and the ONNX inference bridge) are verified against the real PC code and reference servers. Run `python tools/verify_all.py` to check all of them at once.
 
@@ -48,4 +48,4 @@ To match the rest of the OpenMuscle stack:
 - Hardware: CERN-OHL-S-2.0
 - Software: MIT
 
-This repository will be MIT once the first source code lands.
+This repository is MIT licensed; see [`LICENSE`](LICENSE).

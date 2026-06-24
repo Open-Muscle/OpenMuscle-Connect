@@ -4,6 +4,45 @@ This is the running progress journal for the autonomous build of Open Muscle
 Connect. If you are a future loop: read this top-to-bottom, then continue from
 "Next worklist."
 
+> CURRENT STATE (2026-06-24, multi-agent coordination run): the phone app is now
+> FEATURE-COMPLETE across P1-P4 plus the WiFi provisioning client side, built as
+> the `phone` team on Tory's multi-team coordination board (firmware / phone /
+> vrpc / overseer; board at `C:\dev\ttx\Open Muscle\.claude-mail\openmuscle`). The
+> repo is git-init'd on `main` with an MIT LICENSE; 26 commits are staged locally
+> and AWAIT TORY'S PUSH (red line: do not push). `:app:testDebugUnitTest` BUILD
+> SUCCESSFUL, 78 JVM unit tests pass.
+>
+> What landed this run:
+> - P1 PROTOCOL FREEZE: signed off on OpenMuscle PROTOCOL.md v1.0 (announce UDP
+>   3140, data UDP 3141, cmd TCP 8001 FlexGrid / 8002 LASK5). Caught two
+>   frozen-spec bugs: the 245cb8f column-major flatten transpose, and a live PC
+>   transpose, both fixed. Row-major `matrix[c][r]` is canonical.
+> - P2 WIFI PROVISIONING (Tory priority #2): the onboarding is wired end to end.
+>   Flow: picker set-up-a-new-device -> location permission -> scan OM-* SoftAPs
+>   (ApSsid/ApScanner) -> connect local-only via WifiNetworkSpecifier
+>   (ProvisioningClient) -> GET /info identity confirm -> enter home SSID/password
+>   -> POST /provision -> release AP -> confirm the device rejoined the LAN via its
+>   3140 announce (ProvisioningViewModel + ProvisioningScreen). Built to the #0042
+>   corrections (Specifier not Suggestion; hub_host omitted; manual SSID; confirm
+>   on 3140). Open-AP vs WPA2-PSK join auth is the only Tory item-6 dependency.
+>   Live end-to-end waits on firmware AP mode + the phone.
+> - P3 DISCOVERY HARDENING: beacon listen on UDP 3140; device host/IP persisted
+>   for cache recovery.
+> - P4 MULTI-DEVICE: role UI (left/right/labeler), CSV schema v2 (long format,
+>   meta.json sidecar), bilateral trainer pivot, mirroring. The v2 byte contract is
+>   closed across all three teams (phone CsvV2Writer = PC CaptureWriter = trainer
+>   pivot); meta.json interop verified with vrpc.
+>
+> Pre-push self-reviews caught real bugs in the un-unit-testable Android/network
+> code before they reached the push: the TcpControlChannel reconnect-flap race
+> (a1941cd, heartbeat is now the sole owner of `connected`), and two
+> ConnectivityManager callback leaks + a provisioning state-stomp (7694be6).
+>
+> REMAINING is all Tory-gated or firmware-gated: push the 26 commits; reconnect the
+> phone; on-device review of the multi-device capture UX + the provisioning
+> end-to-end once firmware ships AP mode; ratify open-AP vs WPA2 (item 6) and the
+> VR hub model (item 5). No greenlit non-gated phone code remains.
+
 > NOTE (2026-06-18): this file was reconstructed from the session context after a
 > disk-full event truncated it to 0 bytes (D: drive hit 0 bytes free mid-write;
 > the project lives on OneDrive/D:). Content is faithful but may not be
@@ -79,7 +118,8 @@ Connect. If you are a future loop: read this top-to-bottom, then continue from
 
 ## Ground rules
 
-- No `git init` until Tory confirms repo name + license (open question).
+- git init + MIT LICENSE DONE (Tory's unified-plan priority #1); 26 commits on
+  `main` await Tory's push. Do NOT push (red line #2); Tory pushes.
 - No em dashes in any file written to disk.
 - No Co-Authored-By trailer unless real code/content was authored (and never
   noreply@anthropic.com; use turfptax-claude@openmuscle.org).
@@ -98,6 +138,16 @@ Connect. If you are a future loop: read this top-to-bottom, then continue from
 | 3 | BLE transport at parity | Codec verified; scanner + GATT skeletons; connection-mode swap deferred (firmware-gated) |
 | 4 | ONNX inference + predicted hand pose | Done; bridge verified; on-device UI runs |
 | 5 | VR pairing (phone as hub) | Not started; unratified open question |
+
+The phase 0-5 board above is the original v1 build. The 2026-06-24 multi-agent run
+added these workstreams (phone team); see CURRENT STATE at the top for detail.
+
+| Workstream | State |
+|---|---|
+| P1 protocol freeze (PROTOCOL.md v1.0 sign-off) | Done; caught 2 frozen-spec transpose bugs |
+| P2 WiFi provisioning onboarding (client side) | Feature-complete; live test waits on firmware AP mode |
+| P3 discovery hardening (3140 listen, host/IP cache) | Done |
+| P4 multi-device (roles, CSV schema v2, mirroring) | Done; v2 byte contract closed across teams |
 
 ## Verified (Python cross-impl checks, run `python tools/verify_all.py` -> 7/7)
 
@@ -120,10 +170,13 @@ Connect. If you are a future loop: read this top-to-bottom, then continue from
 - `discovery_demo.py --selftest`: the announce -> subscribe -> unicast ->
   heartbeat-keepalive -> timeout-drop handshake (runnable firmware reference).
 
-## JVM unit tests (48, all pass via `./gradlew test`)
+## JVM unit tests (78, all pass via `./gradlew test`)
 
 Parser, MatrixUtil flatten, TemporalMatcher, CsvSessionWriter, CaptureRecorder,
-ControlCodec, BleFrameCodec, Inference feature-prep, HzMeter, DeviceRegistry.
+ControlCodec, BleFrameCodec, Inference feature-prep, HzMeter, DeviceRegistry,
+plus the 2026-06-24 multi-agent additions: ProvisioningCodec + ApSsid (P2),
+CsvV2Writer + CaptureMetaCodec + Role (P4 schema v2), and the DeviceRegistry
+role/cache cases.
 
 ## App layout (native Kotlin + Compose, package org.openmuscle.connect)
 
@@ -190,6 +243,22 @@ the phone, Load model on the Predict screen.
     the dir, or move `build/` off OneDrive); VR hub model; BLE transport swap.
 
 ## Loop journal (newest first)
+
+- 2026-06-24 multi-agent run, phone team (see CURRENT STATE at top for full
+  detail): the phone joined Tory's coordination board and drove its workstream to
+  feature-complete across P1-P4 + the WiFi provisioning client side. P2 WiFi
+  provisioning wired end to end (ProvisioningCodec -> ProvisioningClient ->
+  ApScanner/ApSsid -> ProvisioningViewModel -> ProvisioningScreen + nav). Repo
+  git-init'd on `main` with MIT LICENSE; 26 commits, 78 tests pass, NOT pushed
+  (Tory pushes). Pre-push self-reviews caught + fixed the TcpControlChannel
+  reconnect-flap race (a1941cd) and two ConnectivityManager callback leaks + a
+  provisioning state-stomp (7694be6). P1 protocol freeze signed off (2 transpose
+  bugs caught: 245cb8f flatten + a live PC transpose); P3 discovery hardening
+  (3140 listen + host/IP cache); P4 multi-device roles + CSV schema v2 + mirroring,
+  with the v2 byte contract closed across phone/PC/trainer and meta.json interop
+  verified with vrpc. Recurring friction: OneDrive locks build outputs mid-build
+  (clear `app/build` and rebuild clean); avoid literal double-quotes in mail.py
+  board post bodies (PowerShell 5.1 arg mangling).
 
 - 2026-06-18 LIVE HEATMAP CONFIRMED on the Pixel against the REAL V4 device
   (autonomous loop): the FlexGrid came back online (monitor caught its announce);
