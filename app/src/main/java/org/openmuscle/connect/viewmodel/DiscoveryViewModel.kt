@@ -10,8 +10,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.openmuscle.connect.OmApp
 import org.openmuscle.connect.Prefs
+import org.openmuscle.connect.discovery.DeviceCache
 import org.openmuscle.connect.discovery.DeviceRegistry
 import org.openmuscle.connect.discovery.NsdDiscovery
+import org.openmuscle.connect.discovery.toCached
+import org.openmuscle.connect.discovery.toDiscovered
 import org.openmuscle.connect.domain.DiscoveredDevice
 import org.openmuscle.connect.domain.TransportKind
 
@@ -37,6 +40,9 @@ class DiscoveryViewModel(app: Application) : AndroidViewModel(app) {
 
     private val jobs = mutableListOf<Job>()
 
+    /** Wall-clock of last contact per device id, for stamping the persisted cache. */
+    private val lastSeen = mutableMapOf<String, Long>()
+
     /**
      * Begin discovery. Called when the picker is shown so the shared UDP socket
      * and the mDNS/BLE scans only run while the user is choosing a device, not for
@@ -44,8 +50,13 @@ class DiscoveryViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun start() {
         if (jobs.isNotEmpty()) return
-        jobs += viewModelScope.launch { transport.discover().collect { upsert(it) } }
-        jobs += viewModelScope.launch { nsd.devices().collect { upsert(it) } }
+        // Surface previously-seen devices immediately, before any live beacon. A
+        // device that another hub already subscribed has gone quiet (PROTOCOL.md
+        // 5.3), so the cache is the only way the user can reach it from a cold open.
+        loadCache()
+        // Beacon + mDNS carry a host/cmd port worth persisting; frames do not.
+        jobs += viewModelScope.launch { transport.discover().collect { upsert(it, persist = true) } }
+        jobs += viewModelScope.launch { nsd.devices().collect { upsert(it, persist = true) } }
         jobs += viewModelScope.launch {
             transport.sensorFrames().collect { frame ->
                 upsert(
@@ -72,8 +83,25 @@ class DiscoveryViewModel(app: Application) : AndroidViewModel(app) {
         _state.value = registry.rename(id, nick)
     }
 
-    private fun upsert(found: DiscoveredDevice) {
+    private fun upsert(found: DiscoveredDevice, persist: Boolean = false) {
+        lastSeen[found.id] = System.currentTimeMillis()
         // Stored nickname is authoritative for display.
         _state.value = registry.upsert(found, Prefs.nickname(getApplication(), found.id))
+        if (persist) persistCache()
+    }
+
+    /** Load cached devices into the picker without re-stamping their last-seen time. */
+    private fun loadCache() {
+        DeviceCache.decode(Prefs.deviceCacheJson(getApplication())).forEach { c ->
+            lastSeen[c.id] = c.lastSeenMs
+            _state.value = registry.upsert(c.toDiscovered(), Prefs.nickname(getApplication(), c.id))
+        }
+    }
+
+    /** Persist the current device list (those with a known host) to the cache. */
+    private fun persistCache() {
+        val now = System.currentTimeMillis()
+        val cached = _state.value.mapNotNull { d -> d.toCached(lastSeen[d.id] ?: now) }
+        Prefs.setDeviceCacheJson(getApplication(), DeviceCache.encode(cached))
     }
 }

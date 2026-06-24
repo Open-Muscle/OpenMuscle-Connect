@@ -10,6 +10,7 @@ object Prefs {
     private const val FILE = "om_connect_prefs"
     private const val KEY_DEVICE = "selected_device_id"
     private const val KEY_NICK_PREFIX = "nick_"
+    private const val KEY_DEVICE_CACHE = "device_cache_json"
 
     fun selectedDeviceId(ctx: Context): String? =
         prefs(ctx).getString(KEY_DEVICE, null)
@@ -28,6 +29,14 @@ object Prefs {
         val editor = prefs(ctx).edit()
         if (name.isNullOrBlank()) editor.remove(KEY_NICK_PREFIX + id) else editor.putString(KEY_NICK_PREFIX + id, name)
         editor.apply()
+    }
+
+    /** Persisted device address cache (JSON; see [org.openmuscle.connect.discovery.DeviceCache]). */
+    fun deviceCacheJson(ctx: Context): String? =
+        prefs(ctx).getString(KEY_DEVICE_CACHE, null)
+
+    fun setDeviceCacheJson(ctx: Context, json: String) {
+        prefs(ctx).edit().putString(KEY_DEVICE_CACHE, json).apply()
     }
 
     private fun prefs(ctx: Context) =
