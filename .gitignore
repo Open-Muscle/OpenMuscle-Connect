@@ -1,0 +1,26 @@
+# Android / Gradle / IDE
+*.iml
+.gradle/
+.kotlin/
+/local.properties
+/.idea/
+.DS_Store
+/build
+/app/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Claude Code local state (machine-specific; not shared)
+.claude/settings.local.json
+.claude/*.lock
+
+# Python tooling
+__pycache__/
+*.pyc
+
+# Generated ONNX artifacts (export with tools/export_onnx.py --out)
+*.onnx
+/onnx_out/
+/tools/onnx_out/

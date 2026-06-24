@@ -1,0 +1,14 @@
+# Normalize line endings: store LF in the repo, check out native on each OS.
+* text=auto
+
+# Scripts that must keep a specific ending to run.
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+gradlew text eol=lf
+
+# Binary assets git should never try to diff or normalize.
+*.jar      binary
+*.onnx     binary
+*.png      binary
+*.jpg      binary
+*.keystore binary

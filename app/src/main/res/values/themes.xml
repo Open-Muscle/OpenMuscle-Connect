@@ -1,0 +1,9 @@
+<resources>
+    <!-- Compose paints the real UI; this is just the launch/window theme. Dark,
+         no action bar, so there is no light flash before Compose draws. -->
+    <style name="Theme.OpenMuscleConnect" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/om_background</item>
+        <item name="android:statusBarColor">@color/om_background</item>
+        <item name="android:navigationBarColor">@color/om_background</item>
+    </style>
+</resources>

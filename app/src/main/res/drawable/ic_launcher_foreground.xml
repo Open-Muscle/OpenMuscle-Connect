@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Placeholder launcher glyph: a stylized 4-row sensor grid (the Velostat
+     matrix). Replace with real branding later. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:strokeColor="#3DDC84"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M38,38 H70 M38,50 H70 M38,62 H70 M38,74 H70 M38,38 V74 M51,38 V74 M64,38 V74 M70,38 V74" />
+</vector>
