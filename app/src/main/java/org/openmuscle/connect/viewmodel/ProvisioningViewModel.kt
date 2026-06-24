@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import org.openmuscle.connect.OmApp
+import org.openmuscle.connect.provisioning.ApPsk
 import org.openmuscle.connect.provisioning.ApScanner
 import org.openmuscle.connect.provisioning.ProvisionInfo
 import org.openmuscle.connect.provisioning.ProvisionResult
@@ -22,7 +23,7 @@ import org.openmuscle.connect.provisioning.ProvisioningClient
 import org.openmuscle.connect.provisioning.UnprovisionedDevice
 
 enum class ProvisioningStep {
-    IDLE, NEED_PERMISSION, SCANNING, PICK_DEVICE, CONNECTING, CONFIRM_IDENTITY,
+    IDLE, NEED_PERMISSION, SCANNING, PICK_DEVICE, ENTER_PSK, CONNECTING, CONFIRM_IDENTITY,
     ENTER_CREDS, PROVISIONING, WAITING_JOIN, SUCCESS, FAILURE
 }
 
@@ -31,6 +32,7 @@ data class ProvisioningUiState(
     val devices: List<UnprovisionedDevice> = emptyList(),
     val selected: UnprovisionedDevice? = null,
     val info: ProvisionInfo? = null,
+    val psk: String = "",
     val ssid: String = "",
     val password: String = "",
     val message: String? = null,
@@ -96,13 +98,28 @@ class ProvisioningViewModel(app: Application) : AndroidViewModel(app) {
             _state.update { it.copy(step = ProvisioningStep.FAILURE, message = "WiFi provisioning needs Android 10 or newer.") }
             return
         }
-        _state.update { it.copy(selected = d, step = ProvisioningStep.CONNECTING, message = null) }
+        // The AP is WPA2-PSK (board #0127): collect the OLED code before joining.
+        _state.update {
+            it.copy(selected = d, psk = "", step = ProvisioningStep.ENTER_PSK, message = "Read the 10-character code on the device's screen.")
+        }
+    }
+
+    fun setPsk(p: String) = _state.update { it.copy(psk = p) }
+
+    fun submitPsk() {
+        val s = _state.value
+        val d = s.selected ?: return
+        if (!ApPsk.isValid(s.psk)) {
+            _state.update { it.copy(message = "Enter the 10-character code shown on the device screen.") }
+            return
+        }
+        _state.update { it.copy(step = ProvisioningStep.CONNECTING, message = null) }
         job?.cancel()
         job = viewModelScope.launch {
-            val net = client.connectToAp(d.ssid)
+            val net = client.connectToAp(d.ssid, s.psk)
             if (net == null) {
                 client.disconnect()   // clean up the request on the onUnavailable/timeout path
-                _state.update { it.copy(step = ProvisioningStep.FAILURE, message = "Could not join ${d.ssid}.") }
+                _state.update { it.copy(step = ProvisioningStep.FAILURE, message = "Could not join ${d.ssid}. Check the code and try again.") }
                 return@launch
             }
             network = net

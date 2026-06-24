@@ -35,6 +35,8 @@ fun ProvisioningScreen(
     onScan: () -> Unit,
     onRequestPermission: () -> Unit,
     onSelectDevice: (UnprovisionedDevice) -> Unit,
+    onSetPsk: (String) -> Unit,
+    onSubmitPsk: () -> Unit,
     onConfirmIdentity: () -> Unit,
     onSetSsid: (String) -> Unit,
     onSetPassword: (String) -> Unit,
@@ -96,6 +98,21 @@ fun ProvisioningScreen(
                         }
                     }
                     OutlinedButton(onClick = onScan, modifier = Modifier.fillMaxWidth()) { Text("Scan again") }
+                }
+
+                ProvisioningStep.ENTER_PSK -> {
+                    Text(
+                        "Read the 10-character code on the ${state.selected?.deviceId ?: "device"} screen and enter it.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedTextField(
+                        value = state.psk,
+                        onValueChange = onSetPsk,
+                        singleLine = true,
+                        label = { Text("Device code (10 characters)") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Button(onClick = onSubmitPsk, modifier = Modifier.fillMaxWidth()) { Text("Join") }
                 }
 
                 ProvisioningStep.CONNECTING -> Text("Joining the device's setup Wi-Fi...", color = MaterialTheme.colorScheme.onSurfaceVariant)

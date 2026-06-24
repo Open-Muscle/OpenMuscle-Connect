@@ -21,11 +21,15 @@ import kotlin.coroutines.resume
 
 /**
  * Talks to a factory-fresh device's SoftAP for the WiFi provisioning handshake
- * (PROVISIONING.md 4). [connectToAp] joins the open `OM-*` AP as a LOCAL-ONLY
- * network via WifiNetworkSpecifier (the corrected Android API, board #0042): the
- * phone keeps its home Wi-Fi / cellular as the default network, so background data
+ * (PROVISIONING.md 4). [connectToAp] joins the `OM-*` AP as a LOCAL-ONLY network
+ * via WifiNetworkSpecifier (the corrected Android API, board #0042): the phone
+ * keeps its home Wi-Fi / cellular as the default network, so background data
  * survives and it reverts automatically on [disconnect]. HTTP calls are bound to
  * that network's socket factory and hit 192.168.4.1 directly (no DNS).
+ *
+ * The AP is WPA2-PSK (board #0127); the passphrase is a per-device random 10-char
+ * code the user reads off the device OLED and types in (see [ApPsk]). It is passed
+ * straight to setWpa2Passphrase, never derived.
  *
  * WifiNetworkSpecifier is API 29+; the onboarding UI gates on it. Socket/radio I/O
  * is untestable in this environment; the JSON shapes are covered by
@@ -39,16 +43,20 @@ class ProvisioningClient(context: Context) {
     private var callback: ConnectivityManager.NetworkCallback? = null
 
     /**
-     * Join the device's open AP [ssid] (local-only). Returns the bound network, or
-     * null on failure/timeout. The OS shows a one-time approval dialog. Hold the
-     * returned network for the handshake, then call [disconnect].
+     * Join the device's WPA2 AP [ssid] with the OLED passphrase [psk] (local-only).
+     * Returns the bound network, or null on failure/timeout (a wrong PSK surfaces
+     * here as a null after the OS auth attempt). The OS shows a one-time approval
+     * dialog. Hold the returned network for the handshake, then call [disconnect].
      */
     @RequiresApi(Build.VERSION_CODES.Q)
-    suspend fun connectToAp(ssid: String, timeoutMs: Long = CONNECT_TIMEOUT_MS): Network? =
+    suspend fun connectToAp(ssid: String, psk: String, timeoutMs: Long = CONNECT_TIMEOUT_MS): Network? =
         withTimeoutOrNull(timeoutMs) {
             release()   // drop any prior pending request so we never leak a second callback
             suspendCancellableCoroutine { cont ->
-                val specifier = WifiNetworkSpecifier.Builder().setSsid(ssid).build()
+                val specifier = WifiNetworkSpecifier.Builder()
+                    .setSsid(ssid)
+                    .setWpa2Passphrase(psk)
+                    .build()
                 val request = NetworkRequest.Builder()
                     .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
                     .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)

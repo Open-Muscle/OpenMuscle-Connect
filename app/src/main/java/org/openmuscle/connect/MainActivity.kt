@@ -113,6 +113,8 @@ class MainActivity : ComponentActivity() {
                                 locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                             },
                             onSelectDevice = provisioningVm::selectDevice,
+                            onSetPsk = provisioningVm::setPsk,
+                            onSubmitPsk = provisioningVm::submitPsk,
                             onConfirmIdentity = provisioningVm::confirmIdentity,
                             onSetSsid = provisioningVm::setSsid,
                             onSetPassword = provisioningVm::setPassword,
