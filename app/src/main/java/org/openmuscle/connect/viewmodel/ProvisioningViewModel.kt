@@ -129,7 +129,20 @@ class ProvisioningViewModel(app: Application) : AndroidViewModel(app) {
                 _state.update { it.copy(step = ProvisioningStep.FAILURE, message = "Joined ${d.ssid} but the device did not respond.") }
                 return@launch
             }
-            _state.update { it.copy(info = info, step = ProvisioningStep.CONFIRM_IDENTITY) }
+            // Spec 6.3: warn (not block) if the device's /info id disagrees with the
+            // id-tail its setup AP advertised; a spoofed OM-* AP would fail this.
+            val mismatch = info.id != d.deviceId
+            _state.update {
+                it.copy(
+                    info = info,
+                    step = ProvisioningStep.CONFIRM_IDENTITY,
+                    message = if (mismatch) {
+                        "Warning: this device reports id ${info.id}, but its setup network named ${d.deviceId}. Continue only if you trust it."
+                    } else {
+                        null
+                    },
+                )
+            }
         }
     }
 
