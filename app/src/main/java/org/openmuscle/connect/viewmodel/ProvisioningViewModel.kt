@@ -76,7 +76,14 @@ class ProvisioningViewModel(app: Application) : AndroidViewModel(app) {
                 delay(SCAN_INTERVAL_MS)
                 val found = scanner.devices()
                 if (found.isNotEmpty()) {
-                    _state.update { it.copy(devices = found, step = ProvisioningStep.PICK_DEVICE) }
+                    _state.update {
+                        // Don't stomp a later step if the user already picked a device.
+                        if (it.step == ProvisioningStep.SCANNING || it.step == ProvisioningStep.PICK_DEVICE) {
+                            it.copy(devices = found, step = ProvisioningStep.PICK_DEVICE)
+                        } else {
+                            it
+                        }
+                    }
                 }
             }
             // Show the picker even if empty, so the user gets a "none found, retry".
@@ -94,6 +101,7 @@ class ProvisioningViewModel(app: Application) : AndroidViewModel(app) {
         job = viewModelScope.launch {
             val net = client.connectToAp(d.ssid)
             if (net == null) {
+                client.disconnect()   // clean up the request on the onUnavailable/timeout path
                 _state.update { it.copy(step = ProvisioningStep.FAILURE, message = "Could not join ${d.ssid}.") }
                 return@launch
             }

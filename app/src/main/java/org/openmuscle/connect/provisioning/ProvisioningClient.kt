@@ -46,6 +46,7 @@ class ProvisioningClient(context: Context) {
     @RequiresApi(Build.VERSION_CODES.Q)
     suspend fun connectToAp(ssid: String, timeoutMs: Long = CONNECT_TIMEOUT_MS): Network? =
         withTimeoutOrNull(timeoutMs) {
+            release()   // drop any prior pending request so we never leak a second callback
             suspendCancellableCoroutine { cont ->
                 val specifier = WifiNetworkSpecifier.Builder().setSsid(ssid).build()
                 val request = NetworkRequest.Builder()
