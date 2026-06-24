@@ -1,5 +1,6 @@
 package org.openmuscle.connect
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.net.wifi.WifiManager
@@ -21,15 +22,17 @@ import org.openmuscle.connect.ui.DevicePickerScreen
 import org.openmuscle.connect.ui.HomeScreen
 import org.openmuscle.connect.ui.InferenceScreen
 import org.openmuscle.connect.ui.MultiCaptureScreen
+import org.openmuscle.connect.ui.ProvisioningScreen
 import org.openmuscle.connect.ui.theme.OpenMuscleConnectTheme
 import org.openmuscle.connect.viewmodel.CaptureViewModel
 import org.openmuscle.connect.viewmodel.ConnectViewModel
 import org.openmuscle.connect.viewmodel.DiscoveryViewModel
 import org.openmuscle.connect.viewmodel.InferenceViewModel
 import org.openmuscle.connect.viewmodel.MultiCaptureViewModel
+import org.openmuscle.connect.viewmodel.ProvisioningViewModel
 import java.io.File
 
-private enum class Route { PICKER, HOME, CAPTURE, INFER, MULTI_CAPTURE }
+private enum class Route { PICKER, HOME, CAPTURE, INFER, MULTI_CAPTURE, PROVISION }
 
 class MainActivity : ComponentActivity() {
 
@@ -37,6 +40,7 @@ class MainActivity : ComponentActivity() {
     private val discoveryVm: DiscoveryViewModel by viewModels()
     private val captureVm: CaptureViewModel by viewModels()
     private val multiCaptureVm: MultiCaptureViewModel by viewModels()
+    private val provisioningVm: ProvisioningViewModel by viewModels()
     private val inferenceVm: InferenceViewModel by viewModels()
     private var multicastLock: WifiManager.MulticastLock? = null
 
@@ -44,6 +48,12 @@ class MainActivity : ComponentActivity() {
     private val modelPicker =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             uri?.let { inferenceVm.loadModel(it) }
+        }
+
+    // Location runtime permission, required for the Wi-Fi scan in provisioning.
+    private val locationPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            provisioningVm.onLocationPermission(granted)
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -86,6 +96,32 @@ class MainActivity : ComponentActivity() {
                             onRename = discoveryVm::renameDevice,
                             onSetRole = discoveryVm::setRole,
                             onMultiCapture = { route = Route.MULTI_CAPTURE },
+                            onProvisionDevice = {
+                                route = Route.PROVISION
+                                // Launching always: if already granted, returns immediately.
+                                locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                            },
+                        )
+                    }
+
+                    Route.PROVISION -> {
+                        val state by provisioningVm.state.collectAsState()
+                        ProvisioningScreen(
+                            state = state,
+                            onScan = provisioningVm::startScan,
+                            onRequestPermission = {
+                                locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                            },
+                            onSelectDevice = provisioningVm::selectDevice,
+                            onConfirmIdentity = provisioningVm::confirmIdentity,
+                            onSetSsid = provisioningVm::setSsid,
+                            onSetPassword = provisioningVm::setPassword,
+                            onProvision = provisioningVm::provision,
+                            onReset = provisioningVm::reset,
+                            onBack = {
+                                provisioningVm.reset()
+                                route = Route.PICKER
+                            },
                         )
                     }
 
