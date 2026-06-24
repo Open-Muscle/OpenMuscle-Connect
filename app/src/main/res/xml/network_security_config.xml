@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cleartext HTTP is blocked by default on Android 9+. The WiFi provisioning
+  handshake (PROVISIONING.md 4) is plaintext HTTP to the device's SoftAP at
+  192.168.4.1 (no TLS in v1.0; brief, local, user present). Allow cleartext only
+  to that exact host; everything else stays HTTPS-only.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">192.168.4.1</domain>
+    </domain-config>
+</network-security-config>
