@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import org.openmuscle.connect.domain.ImuSnapshot
 import org.openmuscle.connect.ui.theme.OmBackground
 import org.openmuscle.connect.ui.theme.OmSurface
 import org.openmuscle.connect.viewmodel.ConnectUiState
@@ -93,6 +94,11 @@ fun HomeScreen(
                 Text(if (state.listening) "Stop listening" else "Start listening")
             }
 
+            state.status?.imu?.let { imu ->
+                Spacer(Modifier.height(16.dp))
+                ImuCard(imu)
+            }
+
             if (state.controlConnected) {
                 Spacer(Modifier.height(16.dp))
                 ControlCard(state, onStartStream, onStopStream, onScanRate)
@@ -139,6 +145,46 @@ private fun ControlCard(
                 Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
             }
         }
+    }
+}
+
+@Composable
+private fun ImuCard(imu: ImuSnapshot) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = OmSurface),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+            Text(
+                "IMU" + (imu.variant?.let { "  ($it)" } ?: ""),
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(8.dp))
+            ImuRow("Gyro", imu.gyro)
+            Spacer(Modifier.height(4.dp))
+            ImuRow("Accel", imu.accel)
+            Spacer(Modifier.height(6.dp))
+            // Only surface temp when plausible; the firmware temp_c has read out of
+            // range (e.g. -1894 C) on the TOKMAS variant, so don't present garbage.
+            val tempStr = imu.tempC?.takeIf { it in -40.0..150.0 }?.let { "temp %.1f C  -  ".format(it) }.orEmpty()
+            Text(
+                tempStr + "raw counts, refreshes ~5s (status cadence)",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelSmall,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ImuRow(label: String, axes: List<Int>) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontFamily = FontFamily.Monospace)
+        Text(
+            if (axes.size >= 3) "x %6d  y %6d  z %6d".format(axes[0], axes[1], axes[2]) else "--",
+            color = MaterialTheme.colorScheme.onBackground,
+            fontFamily = FontFamily.Monospace,
+        )
     }
 }
 

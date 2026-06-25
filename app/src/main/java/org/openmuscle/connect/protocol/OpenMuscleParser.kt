@@ -10,6 +10,7 @@ import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.longOrNull
 import org.openmuscle.connect.domain.DeviceStatus
+import org.openmuscle.connect.domain.ImuSnapshot
 import org.openmuscle.connect.domain.LabelFrame
 import org.openmuscle.connect.domain.SensorFrame
 
@@ -165,7 +166,20 @@ object OpenMuscleParser {
         scanRateHz = meta.prim("scan_rate_hz")?.intOrNull,
         resetCause = meta.prim("reset_cause")?.intOrNull,
         resetCauseName = meta.prim("reset_cause_name")?.contentOrNull,
+        imu = parseImu(meta["imu"] as? JsonObject),
     )
+
+    private fun parseImu(o: JsonObject?): ImuSnapshot? {
+        if (o == null) return null
+        fun axes(key: String) =
+            (o[key] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.intOrNull } ?: emptyList()
+        return ImuSnapshot(
+            variant = (o["variant"] as? JsonPrimitive)?.contentOrNull,
+            accel = axes("accel"),
+            gyro = axes("gyro"),
+            tempC = (o["temp_c"] as? JsonPrimitive)?.doubleOrNull,
+        )
+    }
 
     private fun JsonObject.prim(key: String): JsonPrimitive? = this[key] as? JsonPrimitive
 

@@ -41,6 +41,18 @@ class OpenMuscleParserTest {
     }
 
     @Test
+    fun parsesImuFromStatusMeta() {
+        val json = """{"v":"1.0","type":"flexgrid","id":"flexgrid-d7af0b","ts":7,""" +
+            """"data":{"matrix":${matrixJson()},"rows":4,"cols":15},""" +
+            """"meta":{"imu":{"variant":"tokmas","accel":[10,-20,16000],"gyro":[1,2,-3],"temp_c":31.5}}}"""
+        val imu = (OpenMuscleParser.parse(json, 0L) as ParsedPacket.Sensor).frame.status?.imu!!
+        assertEquals("tokmas", imu.variant)
+        assertEquals(listOf(10, -20, 16000), imu.accel)
+        assertEquals(listOf(1, 2, -3), imu.gyro)
+        assertEquals(31.5, imu.tempC!!, 1e-9)
+    }
+
+    @Test
     fun parsesLask5() {
         val json = """{"v":"1.0","type":"lask5","id":"lask5-01","ts":42,""" +
             """"data":{"values":[1.0,0.5,0.9942197,0],"joystick":{"x":2048,"y":1900}}}"""
