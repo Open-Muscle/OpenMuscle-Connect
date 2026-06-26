@@ -94,9 +94,11 @@ fun HomeScreen(
                 Text(if (state.listening) "Stop listening" else "Start listening")
             }
 
-            state.status?.imu?.let { imu ->
+            // Prefer the fast per-frame data.imu (~sensor rate) over the slow status meta imu.
+            val liveImu = state.frame?.imu
+            (liveImu ?: state.status?.imu)?.let { imu ->
                 Spacer(Modifier.height(16.dp))
-                ImuCard(imu)
+                ImuCard(imu, fast = liveImu != null)
             }
 
             if (state.controlConnected) {
@@ -149,7 +151,7 @@ private fun ControlCard(
 }
 
 @Composable
-private fun ImuCard(imu: ImuSnapshot) {
+private fun ImuCard(imu: ImuSnapshot, fast: Boolean) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = OmSurface),
@@ -167,8 +169,9 @@ private fun ImuCard(imu: ImuSnapshot) {
             // Only surface temp when plausible; the firmware temp_c has read out of
             // range (e.g. -1894 C) on the TOKMAS variant, so don't present garbage.
             val tempStr = imu.tempC?.takeIf { it in -40.0..150.0 }?.let { "temp %.1f C  -  ".format(it) }.orEmpty()
+            val cadence = if (fast) "live (sensor rate)" else "~5s (status cadence)"
             Text(
-                tempStr + "raw counts, refreshes ~5s (status cadence)",
+                tempStr + "raw counts, $cadence",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelSmall,
             )

@@ -53,6 +53,16 @@ class OpenMuscleParserTest {
     }
 
     @Test
+    fun parsesImuFromDataFrame() {
+        // Fast IMU path (PROTOCOL.md 7.1): imu rides `data` alongside the matrix at the sensor rate.
+        val json = """{"v":"1.0","type":"flexgrid","id":"flexgrid-d7af0b","ts":7,"seq":3,""" +
+            """"data":{"matrix":${matrixJson()},"imu":{"gyro":[32,-146,4],"accel":[-340,307,2128]}}}"""
+        val f = (OpenMuscleParser.parse(json, 0L) as ParsedPacket.Sensor).frame
+        assertEquals(listOf(32, -146, 4), f.imu!!.gyro)
+        assertEquals(listOf(-340, 307, 2128), f.imu!!.accel)
+    }
+
+    @Test
     fun parsesLask5() {
         val json = """{"v":"1.0","type":"lask5","id":"lask5-01","ts":42,""" +
             """"data":{"values":[1.0,0.5,0.9942197,0],"joystick":{"x":2048,"y":1900}}}"""

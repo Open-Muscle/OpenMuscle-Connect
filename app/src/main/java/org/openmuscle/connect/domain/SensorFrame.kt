@@ -19,4 +19,10 @@ data class SensorFrame(
     val seq: Int?,
     val receiveTimeMs: Long,
     val status: DeviceStatus?,
+    /**
+     * Per-frame IMU from `data.imu` (PROTOCOL.md 7.1): the FAST path (~18-20 Hz,
+     * the sensor rate) for orientation, vs the slow `status.imu` from the ~5 s
+     * status meta. Null when the frame carries no imu.
+     */
+    val imu: ImuSnapshot? = null,
 )

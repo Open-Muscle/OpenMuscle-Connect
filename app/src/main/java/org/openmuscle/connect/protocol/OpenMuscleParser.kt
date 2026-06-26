@@ -133,6 +133,7 @@ object OpenMuscleParser {
                 seq = seq,
                 receiveTimeMs = receiveTimeMs,
                 status = meta?.let { parseStatus(it) },
+                imu = parseImu(data["imu"] as? JsonObject),
             ),
         )
     }
