@@ -93,7 +93,11 @@ object OpenMuscleParser {
         // for V3-style beacons that predate the services map.
         val services = obj["services"] as? JsonObject
         val topPort = obj.prim("port")?.intOrNull
-        val sensorPort = services?.prim("sensor")?.intOrNull ?: topPort
+        // The data service is `sensor` (FlexGrid) or `label` (LASK5 labeler); accept
+        // either so a labeler is subscribable, not just a grid device (board #0213).
+        val sensorPort = services?.prim("sensor")?.intOrNull
+            ?: services?.prim("label")?.intOrNull
+            ?: topPort
         val cmdPort = services?.prim("cmd")?.intOrNull
         return ParsedPacket.Announce(
             deviceId = id,

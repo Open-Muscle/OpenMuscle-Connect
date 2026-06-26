@@ -129,6 +129,21 @@ class OpenMuscleParserTest {
     }
 
     @Test
+    fun parsesLask5AnnounceWithLabelDataService() {
+        // LASK5 labeler beacon (board #0213): the data service is `label`, not
+        // `sensor`; cmd is 8002 (not 8001); no `matrix`. Must still parse + carry a
+        // data port so the labeler is subscribable, not silently skipped.
+        val json = """{"v":"1.0","type":"announce","id":"lask5-01","dev":"lask5","role":"source",""" +
+            """"fw":"v3.0.0","transports":["wifi"],"caps":["label","status","cmd"],""" +
+            """"services":{"label":3141,"cmd":8002},"pistons":4,"joystick":true}"""
+        val a = OpenMuscleParser.parse(json, 0) as ParsedPacket.Announce
+        assertEquals("lask5-01", a.deviceId)
+        assertEquals("lask5", a.deviceType)
+        assertEquals(3141, a.sensorPort)   // from services.label, not services.sensor
+        assertEquals(8002, a.cmdPort)
+    }
+
+    @Test
     fun parses16ColLegacyDimensions() {
         val matrix = (0 until 16).joinToString(",", "[", "]") { c ->
             (0 until 4).joinToString(",", "[", "]") { _ -> c.toString() }
